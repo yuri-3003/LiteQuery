@@ -224,13 +224,37 @@ struct Shell {
 
         if (cmd == ".help") {
             std::cout <<
-                ".help              show this help\n"
-                ".tables            list tables\n"
-                ".schema [table]    show CREATE-like column list\n"
-                ".mode MODE         output mode: table | csv | json | list\n"
-                ".timing on|off     toggle the timing footer\n"
-                ".read FILE         execute SQL from a file\n"
-                ".quit              exit\n";
+                ".help                 show this help\n"
+                ".tables               list tables\n"
+                ".schema [table]       show CREATE-like column list\n"
+                ".import FILE TABLE     load a CSV file into a new table\n"
+                ".import -t FILE TABLE  same, but tab-separated (TSV)\n"
+                ".mode MODE            output mode: table | csv | json | list\n"
+                ".timing on|off        toggle the timing footer\n"
+                ".read FILE            execute SQL from a file\n"
+                ".quit                 exit\n";
+            return true;
+        }
+        if (cmd == ".import") {
+            // .import [-t] FILE TABLE     (-t → tab-separated)
+            std::string a1, a2, a3;
+            is >> a1 >> a2;
+            char delim = ',';
+            std::string file, table;
+            if (a1 == "-t") { delim = '\t'; is >> a3; file = a2; table = a3; }
+            else            { file = a1; table = a2; }
+            if (file.empty() || table.empty()) {
+                std::cerr << "usage: .import [-t] FILE TABLE\n";
+                return true;
+            }
+            QueryResult r = conn.importCsv(file, table, delim, /*hasHeader=*/true);
+            if (r.error) {
+                std::cerr << style.red() << "Error: " << style.reset() << r.errorMessage << "\n";
+            } else {
+                std::cout << style.green() << "OK" << style.reset()
+                          << style.dim() << "  (" << r.rowsAffected << " rows into "
+                          << table << ")" << style.reset() << "\n";
+            }
             return true;
         }
         if (cmd == ".tables") {

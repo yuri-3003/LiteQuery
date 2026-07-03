@@ -84,6 +84,16 @@ public:
     // Execute one SQL statement and return the result. Never throws.
     QueryResult query(const std::string& sql);
 
+    // Load a CSV/TSV file into a new table `tableName`, inferring column names
+    // (from the header) and types. Returns a result whose rowsAffected is the
+    // number of rows loaded; on failure returns an error result (never throws).
+    // `delimiter` is ',' for CSV or '\t' for TSV; `hasHeader` names the columns
+    // from the first row when true.
+    QueryResult importCsv(const std::string& path,
+                          const std::string& tableName,
+                          char delimiter = ',',
+                          bool hasHeader = true);
+
     // Produce an EXPLAIN-style textual plan for a SELECT. Never throws; returns
     // the error text on failure.
     std::string explain(const std::string& sql);

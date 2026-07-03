@@ -44,6 +44,8 @@ changes to ` ..>` while a statement is still open.
 | `.help` | list the commands |
 | `.tables` | list tables in the database |
 | `.schema [table]` | show a CREATE-like column list (all tables, or one) |
+| `.import FILE TABLE` | load a CSV file into a new table (types inferred) |
+| `.import -t FILE TABLE` | same, but tab-separated (TSV) |
 | `.mode MODE` | output format: `table` (default) · `csv` · `json` · `list` |
 | `.timing on\|off` | toggle the `N rows · T µs` footer |
 | `.read FILE` | execute SQL from a file |
@@ -69,6 +71,23 @@ Ann,100
 ```
 
 `.mode list` — bare `|`-separated values, no header (handy for piping).
+
+## Loading a CSV
+
+```
+lq> .import sales.csv sales
+OK  (10432 rows into sales)
+lq> .schema sales
+CREATE TABLE sales (
+  region VARCHAR,
+  product VARCHAR,
+  amount FLOAT64
+);
+lq> SELECT region, SUM(amount) AS total FROM sales GROUP BY region ORDER BY total DESC;
+```
+
+Column names come from the header row; types are inferred per column. Empty
+cells load as `NULL`. Use `.import -t file.tsv t` for tab-separated files.
 
 ## Scripting
 

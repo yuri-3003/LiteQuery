@@ -5,6 +5,21 @@ implemented (the parser may accept some of it but execution will report an
 error). Keywords are case-insensitive; identifiers are case-insensitive for
 lookup.
 
+## Loading data from CSV
+
+Besides `INSERT`, tables can be created directly from a CSV/TSV file. This is
+exposed through the API and the `lq` shell rather than SQL syntax:
+
+- **C++:** `connection.importCsv("sales.csv", "sales")` — see
+  [c-api.md](c-api.md) / the `Connection` header.
+- **Shell:** `.import sales.csv sales` (or `.import -t data.tsv t` for TSV).
+
+Column **names** come from the header row; column **types** are inferred per
+column (a column is `BIGINT` if every value is an integer, else `DOUBLE` if
+every value is numeric, else `VARCHAR`). Empty fields become `NULL`. Quoting
+(`"a,b"`, `""` escapes), embedded newlines in quotes, CRLF, and a leading UTF-8
+BOM are all handled.
+
 ## Statements
 
 ### CREATE TABLE
@@ -54,6 +69,10 @@ SELECT [DISTINCT] <select_list>
   `<expr> [[AS] alias]`.
 - A missing `FROM` evaluates a single row (`SELECT 1 + 1`).
 - `ORDER BY` may reference columns not in the select list.
+- With `GROUP BY`, `ORDER BY` may reference a **group-key column** or an
+  **aliased aggregate** (`SELECT SUM(x) AS total … ORDER BY total`). Ordering by
+  a *bare* aggregate expression (`ORDER BY SUM(x)` with no alias) is not yet
+  supported — give the aggregate an alias and order by that.
 - `UNION` is modeled by the planner; execution of set operations is partial.
 
 ## Table references & joins

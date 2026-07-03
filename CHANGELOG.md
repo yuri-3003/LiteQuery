@@ -8,10 +8,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **CSV/TSV ingestion**: `Connection::importCsv()` and the shell's `.import FILE
+  TABLE` load a delimited file into a new table, inferring column names (header)
+  and types per column. Handles RFC-4180 quoting, `""` escapes, embedded
+  newlines, CRLF, a leading UTF-8 BOM, and blank-cell → NULL.
 - **`lq` interactive SQL shell**: a REPL over the engine with multi-line
   statements, `table`/`csv`/`json`/`list` output modes, and `.help` / `.tables`
-  / `.schema` / `.mode` / `.timing` / `.read` / `.quit` dot-commands. Runs
-  files (`lq script.sql`), stdin pipes, and one-shot `-c "SQL"`.
+  / `.schema` / `.import` / `.mode` / `.timing` / `.read` / `.quit`
+  dot-commands. Runs files (`lq script.sql`), stdin pipes, and one-shot
+  `-c "SQL"`.
+
+### Fixed
+- `ORDER BY` and `LIMIT` are now applied to aggregate (`GROUP BY`) results.
+  Previously an aggregate query returned rows in hash order and ignored a
+  trailing `ORDER BY`/`LIMIT`. Ordering by a group-key column or an aliased
+  aggregate (`SUM(x) AS total … ORDER BY total`) now works.
 - GitHub Actions CI: build + test on Linux (GCC/Clang), macOS, and Windows,
   plus an AddressSanitizer/UBSan job on Linux.
 - CMake install/export: `find_package(LiteQuery)` provides the imported target

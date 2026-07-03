@@ -9,7 +9,10 @@
 #include "parser.h"
 #include "eval.h"
 #include "connection.h"
+#include "csv_reader.h"
 
+#include <cstdio>
+#include <fstream>
 #include <string>
 
 using namespace lq;
@@ -237,6 +240,27 @@ TEST(group_by) {
     CHECK_EQ(engSum, 330.0);   // 100+120+110
 }
 
+TEST(group_by_order_by_group_key) {
+    // Regression: ORDER BY a group key must sort the aggregate result.
+    Connection c = makeDb();
+    QueryResult r = c.query("SELECT dept, COUNT(*) FROM emp GROUP BY dept ORDER BY dept");
+    CHECK(r.ok());
+    CHECK_EQ(r.rows.size(), (size_t)2);
+    CHECK_EQ(r.rows[0][0].getString(), std::string("Eng"));   // Eng < Sales
+    CHECK_EQ(r.rows[1][0].getString(), std::string("Sales"));
+}
+
+TEST(group_by_order_by_aggregate_alias) {
+    // Regression: ORDER BY an aliased aggregate result + LIMIT.
+    Connection c = makeDb();
+    QueryResult r = c.query(
+        "SELECT dept, SUM(salary) AS total FROM emp GROUP BY dept ORDER BY total DESC LIMIT 1");
+    CHECK(r.ok());
+    CHECK_EQ(r.rows.size(), (size_t)1);
+    CHECK_EQ(r.rows[0][0].getString(), std::string("Eng"));   // 330 > 185
+    CHECK_EQ(r.rows[0][1].toDouble(), 330.0);
+}
+
 // ============================================================================
 // Joins
 // ============================================================================
@@ -301,6 +325,92 @@ TEST(drop_table) {
     CHECK(c.query("SELECT * FROM t").ok());
     c.query("DROP TABLE t");
     CHECK(!c.query("SELECT * FROM t").ok());
+}
+
+// ============================================================================
+// CSV ingestion
+// ============================================================================
+
+TEST(csv_basic_inference) {
+    TablePtr t = readCsvString("id,name,amt\n1,Ann,10.5\n2,Bob,20\n", "t");
+    CHECK_EQ(t->rowCount(), (size_t)2);
+    CHECK_EQ(t->columnCount(), (size_t)3);
+    CHECK(t->schema()[0].type.id == TypeId::INT64);    // id
+    CHECK(t->schema()[1].type.id == TypeId::VARCHAR);  // name
+    CHECK(t->schema()[2].type.id == TypeId::FLOAT64);  // amt (10.5 forces double)
+    CHECK_EQ(t->columnAt(1)[0].getString(), std::string("Ann"));
+    CHECK_EQ(t->columnAt(2)[1].toDouble(), 20.0);
+}
+
+TEST(csv_quoted_fields) {
+    // Quoted comma, and "" escape inside a quoted field.
+    TablePtr t = readCsvString("a,b\n\"x, y\",\"he said \"\"hi\"\"\"\n", "t");
+    CHECK_EQ(t->rowCount(), (size_t)1);
+    CHECK_EQ(t->columnAt(0)[0].getString(), std::string("x, y"));
+    CHECK_EQ(t->columnAt(1)[0].getString(), std::string("he said \"hi\""));
+}
+
+TEST(csv_empty_is_null) {
+    // Blank cells become NULL and do not widen the numeric type.
+    TablePtr t = readCsvString("n\n5\n\n7\n", "t");
+    CHECK(t->schema()[0].type.id == TypeId::INT64);
+    CHECK_EQ(t->rowCount(), (size_t)3);
+    CHECK(t->columnAt(0)[1].isNull());
+}
+
+TEST(csv_crlf_and_bom) {
+    // Leading UTF-8 BOM + CRLF line endings.
+    std::string bom = "\xEF\xBB\xBF";
+    TablePtr t = readCsvString(bom + "x,y\r\n1,2\r\n3,4\r\n", "t");
+    CHECK_EQ(t->rowCount(), (size_t)2);
+    CHECK_EQ(t->schema()[0].name, std::string("x"));   // BOM stripped from header
+    CHECK_EQ(t->columnAt(1)[1].toInt64(), (int64_t)4);
+}
+
+TEST(csv_tsv_delimiter) {
+    CsvOptions o; o.delimiter = '\t';
+    TablePtr t = readCsvString("a\tb\n1\t2\n", "t", o);
+    CHECK_EQ(t->columnCount(), (size_t)2);
+    CHECK_EQ(t->columnAt(1)[0].toInt64(), (int64_t)2);
+}
+
+TEST(csv_no_header) {
+    CsvOptions o; o.hasHeader = false;
+    TablePtr t = readCsvString("1,2\n3,4\n", "t", o);
+    CHECK_EQ(t->rowCount(), (size_t)2);
+    CHECK_EQ(t->schema()[0].name, std::string("col1"));
+}
+
+TEST(csv_import_and_query) {
+    // Write a temp CSV, import via Connection, and query it end-to-end.
+    std::string path = "._lq_test_import.csv";
+    {
+        std::ofstream f(path);
+        f << "region,amount\nWest,100\nEast,250\nWest,60\n";
+    }
+    Connection c;
+    QueryResult imp = c.importCsv(path, "sales");
+    CHECK(imp.ok());
+    CHECK_EQ(imp.rowsAffected, (int64_t)3);
+
+    QueryResult r = c.query("SELECT region, SUM(amount) FROM sales GROUP BY region ORDER BY region");
+    CHECK(r.ok());
+    CHECK_EQ(r.rows.size(), (size_t)2);
+    // East=250, West=160
+    CHECK_EQ(r.rows[0][0].getString(), std::string("East"));
+    CHECK_EQ(r.rows[0][1].toDouble(), 250.0);
+    CHECK_EQ(r.rows[1][1].toDouble(), 160.0);
+
+    std::remove(path.c_str());
+}
+
+TEST(csv_import_duplicate_table_errors) {
+    std::string path = "._lq_test_dup.csv";
+    { std::ofstream f(path); f << "a\n1\n"; }
+    Connection c;
+    CHECK(c.importCsv(path, "t").ok());
+    CHECK(!c.importCsv(path, "t").ok());   // second import into same name fails
+    std::remove(path.c_str());
 }
 
 int main() {

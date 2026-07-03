@@ -75,9 +75,17 @@ lq> SELECT dept, COUNT(*), SUM(salary), AVG(salary) FROM emp GROUP BY dept ORDER
 ```
 
 It runs files (`lq script.sql`), stdin (`echo "SELECT 1" | lq`), and one-shot
-statements (`lq -c "SELECT 1+1"`); has `.tables` / `.schema` / `.read`
-meta-commands; and outputs `table`, `csv`, or `json` via `.mode`. Full guide:
-[docs/shell.md](docs/shell.md).
+statements (`lq -c "SELECT 1+1"`); loads real data with `.import data.csv t`;
+has `.tables` / `.schema` / `.read` meta-commands; and outputs `table`, `csv`,
+or `json` via `.mode`. Full guide: [docs/shell.md](docs/shell.md).
+
+Point it at a real CSV and query it immediately:
+
+```
+lq> .import sales.csv sales
+OK  (10432 rows into sales)
+lq> SELECT region, SUM(amount) AS total FROM sales GROUP BY region ORDER BY total DESC LIMIT 5;
+```
 
 ---
 
@@ -99,8 +107,10 @@ suite that runs green under a Release build.
 | `GROUP BY` with `COUNT`/`SUM`/`AVG`/`MIN`/`MAX` (+ `COUNT(DISTINCT …)`) | ✅ |
 | `JOIN` — `INNER`, `LEFT`, `RIGHT`, `FULL`, `CROSS`, with `ON` predicates | ✅ |
 | `DISTINCT`, `ORDER BY` (incl. by dropped columns), `LIMIT` / `OFFSET` | ✅ |
+| CSV/TSV ingestion with automatic type inference (`.import` / `importCsv`) | ✅ |
 | Rule-based optimizer (constant folding, predicate pushdown, column pruning, …) | ✅ |
 | `EXPLAIN` (logical plan printer) | ✅ |
+| Interactive `lq` shell (REPL, table/csv/json output, `.import`) | ✅ |
 | C API (`lq_open`/`lq_query`/`lq_result_*`) — used from pure C | ✅ |
 
 **Known limitations** (candidly): the `Value`-boxed storage/execution path is a

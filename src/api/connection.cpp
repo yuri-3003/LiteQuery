@@ -12,6 +12,7 @@
 #include "physical_plan.h"
 #include "logical_plan.h"
 #include "optimizer.h"
+#include "csv_reader.h"
 
 #include <chrono>
 #include <sstream>
@@ -147,6 +148,25 @@ std::string itemName(const SelectItem& item, size_t idx) {
     return "col" + std::to_string(idx + 1);
 }
 
+// Wrap `op` in a Sort if the statement has an ORDER BY. The sort keys are
+// evaluated against `op`'s current output schema.
+exec::OperatorPtr applyOrderBy(exec::OperatorPtr op, const SelectStmt& stmt) {
+    if (!stmt.orderBy) return op;
+    std::vector<exec::Sort::Key> keys;
+    for (const auto& k : stmt.orderBy->keys)
+        keys.push_back({ k.expr.get(), k.order, k.nullsOrder });
+    return std::make_unique<exec::Sort>(std::move(op), std::move(keys));
+}
+
+// Wrap `op` in a Limit if the statement has a LIMIT/OFFSET.
+exec::OperatorPtr applyLimit(exec::OperatorPtr op, const SelectStmt& stmt) {
+    if (!stmt.limit) return op;
+    int64_t lim = -1, off = 0;
+    if (stmt.limit->limit)  lim = evaluate(**stmt.limit->limit,  Schema{}, Row{}).toInt64();
+    if (stmt.limit->offset) off = evaluate(**stmt.limit->offset, Schema{}, Row{}).toInt64();
+    return std::make_unique<exec::Limit>(std::move(op), lim, off);
+}
+
 // Build the full operator tree for a SELECT.
 exec::OperatorPtr buildSelect(const SelectStmt& stmt, Catalog& cat) {
     // ---- FROM ----
@@ -185,19 +205,36 @@ exec::OperatorPtr buildSelect(const SelectStmt& stmt, Catalog& cat) {
             }
         }
 
-        // Collect aggregate calls from SELECT and HAVING.
+        // Collect aggregate calls from SELECT and HAVING. When an aggregate is
+        // the whole SELECT item and has an alias, name its output column after
+        // that alias so `SELECT SUM(x) AS total … ORDER BY total` resolves.
         std::vector<const FunctionCall*> aggCalls;
-        for (const auto& item : stmt.selectList) collectAggs(*item.expr, aggCalls);
-        if (stmt.having) collectAggs(*stmt.having->predicate, aggCalls);
+        std::vector<std::string>         aggNames;
+        for (const auto& item : stmt.selectList) {
+            std::vector<const FunctionCall*> found;
+            collectAggs(*item.expr, found);
+            for (const auto* fc : found) {
+                aggCalls.push_back(fc);
+                // Alias only applies when the item is exactly the aggregate.
+                bool itemIsAgg = std::get_if<FunctionCall>(item.expr.get()) != nullptr;
+                aggNames.push_back((item.alias && itemIsAgg) ? *item.alias : fc->name);
+            }
+        }
+        if (stmt.having) {
+            std::vector<const FunctionCall*> found;
+            collectAggs(*stmt.having->predicate, found);
+            for (const auto* fc : found) { aggCalls.push_back(fc); aggNames.push_back(fc->name); }
+        }
 
         std::vector<exec::HashAggregate::Agg> aggs;
-        for (const auto* fc : aggCalls) {
+        for (size_t ai = 0; ai < aggCalls.size(); ++ai) {
+            const FunctionCall* fc = aggCalls[ai];
             exec::HashAggregate::Agg a;
             a.func     = fc->name;
             a.star     = fc->star;
             a.distinct = fc->distinct;
             a.arg      = (!fc->star && !fc->args.empty()) ? fc->args[0].get() : nullptr;
-            a.outName  = fc->name;
+            a.outName  = aggNames[ai];
             a.outType  = (fc->name == "COUNT") ? DataType::int64() : DataType::float64().asNullable();
             aggs.push_back(a);
         }
@@ -205,16 +242,17 @@ exec::OperatorPtr buildSelect(const SelectStmt& stmt, Catalog& cat) {
         op = std::make_unique<exec::HashAggregate>(
             std::move(op), std::move(groupKeys), std::move(groupKeyNames), std::move(aggs));
 
-        // NOTE: HAVING on aggregate output and projecting aggregate results by
-        // position is handled in a simplified way: the aggregate output schema
-        // exposes group keys then aggregates in call order, and the final
-        // projection below references them. For the MVP we project aggregate
-        // results directly via their positional names.
-        // HAVING filter (references aggregate output columns by aggregate name).
+        // HAVING filters the aggregate output (references group-key columns and
+        // aggregate-result columns by name).
         if (stmt.having)
             op = std::make_unique<exec::Filter>(std::move(op), stmt.having->predicate.get());
 
-        return op;   // aggregate result is the final shape (already named)
+        // ORDER BY / LIMIT still apply to an aggregate result. The ORDER BY
+        // expressions reference the aggregate's output columns (group keys and
+        // aggregate names), so we sort/limit directly on the aggregate op.
+        op = applyOrderBy(std::move(op), stmt);
+        op = applyLimit(std::move(op), stmt);
+        return op;   // aggregate result carries its group-key/aggregate names
     }
 
     // ---- ORDER BY (before projection) ----
@@ -223,12 +261,7 @@ exec::OperatorPtr buildSelect(const SelectStmt& stmt, Catalog& cat) {
     // sorts by a column that the projection drops). We therefore sort the rows
     // before projecting. Project and Distinct both preserve row order, so the
     // ordering established here survives to the output.
-    if (stmt.orderBy) {
-        std::vector<exec::Sort::Key> keys;
-        for (const auto& k : stmt.orderBy->keys)
-            keys.push_back({ k.expr.get(), k.order, k.nullsOrder });
-        op = std::make_unique<exec::Sort>(std::move(op), std::move(keys));
-    }
+    op = applyOrderBy(std::move(op), stmt);
 
     // ---- Projection (non-aggregate) ----
     // SELECT * (bare star) keeps the child schema as-is; anything else builds
@@ -263,18 +296,7 @@ exec::OperatorPtr buildSelect(const SelectStmt& stmt, Catalog& cat) {
         op = std::make_unique<exec::Distinct>(std::move(op));
 
     // ---- LIMIT / OFFSET ----
-    if (stmt.limit) {
-        int64_t lim = -1, off = 0;
-        if (stmt.limit->limit) {
-            Value v = evaluate(**stmt.limit->limit, Schema{}, Row{});
-            lim = v.toInt64();
-        }
-        if (stmt.limit->offset) {
-            Value v = evaluate(**stmt.limit->offset, Schema{}, Row{});
-            off = v.toInt64();
-        }
-        op = std::make_unique<exec::Limit>(std::move(op), lim, off);
-    }
+    op = applyLimit(std::move(op), stmt);
 
     return op;
 }
@@ -394,6 +416,31 @@ QueryResult Connection::query(const std::string& sql) {
         result = QueryResult::makeError(e.what());
     }
 
+    auto t1 = Clock::now();
+    result.elapsedMicros =
+        std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
+    return result;
+}
+
+QueryResult Connection::importCsv(const std::string& path,
+                                  const std::string& tableName,
+                                  char delimiter, bool hasHeader) {
+    auto t0 = Clock::now();
+    QueryResult result;
+    try {
+        if (catalog_->hasTable(tableName))
+            return QueryResult::makeError("table already exists: " + tableName);
+
+        CsvOptions opts;
+        opts.delimiter = delimiter;
+        opts.hasHeader = hasHeader;
+
+        TablePtr table = readCsv(path, tableName, opts);
+        result.rowsAffected = static_cast<int64_t>(table->rowCount());
+        catalog_->registerTable(std::move(table));
+    } catch (const std::exception& e) {
+        result = QueryResult::makeError(e.what());
+    }
     auto t1 = Clock::now();
     result.elapsedMicros =
         std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();

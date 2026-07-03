@@ -51,6 +51,7 @@ add_library(litequery STATIC
   src/planner/optimizer.cpp
   src/execution/eval.cpp
   src/execution/physical_plan.cpp
+  src/storage/csv_reader.cpp
   src/api/connection.cpp
   src/api/c_api.cpp
 )
