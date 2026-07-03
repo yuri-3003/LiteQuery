@@ -1,0 +1,73 @@
+name: CI
+
+# Build LiteQuery and run its test suite on every push and pull request,
+# across Linux, macOS, and Windows. LiteQuery has zero external dependencies,
+# so this needs only CMake and a C++17 compiler on each runner.
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+  workflow_dispatch:
+
+# Cancel superseded runs on the same ref.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux (GCC)
+            os: ubuntu-latest
+          - name: Linux (Clang)
+            os: ubuntu-latest
+            cxx: clang++
+            cc: clang
+          - name: macOS (AppleClang)
+            os: macos-latest
+          - name: Windows (MSVC)
+            os: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select compiler (Unix)
+        if: matrix.cxx != ''
+        run: |
+          echo "CC=${{ matrix.cc }}"   >> "$GITHUB_ENV"
+          echo "CXX=${{ matrix.cxx }}" >> "$GITHUB_ENV"
+
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Test
+        run: ctest --test-dir build --build-config Release --output-on-failure
+
+  # A separate job that runs the tests under AddressSanitizer + UBSan on Linux,
+  # where the sanitizer runtimes are always available.
+  sanitizers:
+    name: Sanitizers (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure (ASan + UBSan)
+        run: cmake -S . -B build-asan -DCMAKE_BUILD_TYPE=Debug -DLITEQUERY_ASAN=ON
+
+      - name: Build
+        run: cmake --build build-asan
+
+      - name: Test
+        run: ctest --test-dir build-asan --output-on-failure

@@ -1,0 +1,11 @@
+@PACKAGE_INIT@
+
+# LiteQuery package config.
+# Provides the imported target LiteQuery::litequery for downstream projects:
+#
+#   find_package(LiteQuery REQUIRED)
+#   target_link_libraries(myapp PRIVATE LiteQuery::litequery)
+
+include("${CMAKE_CURRENT_LIST_DIR}/LiteQueryTargets.cmake")
+
+check_required_components(LiteQuery)

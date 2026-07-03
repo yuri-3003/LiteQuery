@@ -68,7 +68,9 @@ target_include_directories(litequery
     ${CMAKE_CURRENT_SOURCE_DIR}/src/execution
     ${CMAKE_CURRENT_SOURCE_DIR}/src/api
 )
-target_link_libraries(litequery PRIVATE lq_flags)
+# Warning/sanitizer flags are build-only: wrap them in BUILD_INTERFACE so they
+# never leak into the exported/installed target's usage requirements.
+target_link_libraries(litequery PRIVATE $<BUILD_INTERFACE:lq_flags>)
 
 # The internal C++ headers are needed by tests/demo that use the C++ API.
 set(LITEQUERY_INTERNAL_INCLUDES
@@ -106,6 +108,41 @@ if(LITEQUERY_BUILD_DEMO)
   target_link_libraries(lq_demo PRIVATE litequery lq_flags)
 endif()
 
-# ---- Install ---------------------------------------------------------------
-install(TARGETS litequery ARCHIVE DESTINATION lib)
-install(FILES include/litequery/litequery.h DESTINATION include/litequery)
+# ---- Install & package export ----------------------------------------------
+# Lets downstream projects do:
+#     find_package(LiteQuery REQUIRED)
+#     target_link_libraries(app PRIVATE LiteQuery::litequery)
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
+
+# Public consumers get the include/ directory; drop the INTERFACE flags target
+# from the exported interface (it is a build-tree private detail).
+install(TARGETS litequery
+  EXPORT LiteQueryTargets
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+  INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+install(FILES include/litequery/litequery.h
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/litequery)
+
+# Export the target under the LiteQuery:: namespace.
+install(EXPORT LiteQueryTargets
+  FILE LiteQueryTargets.cmake
+  NAMESPACE LiteQuery::
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/LiteQuery)
+
+# Generate LiteQueryConfig.cmake and a version file.
+configure_package_config_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/cmake/LiteQueryConfig.cmake.in
+  ${CMAKE_CURRENT_BINARY_DIR}/LiteQueryConfig.cmake
+  INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/LiteQuery)
+write_basic_package_version_file(
+  ${CMAKE_CURRENT_BINARY_DIR}/LiteQueryConfigVersion.cmake
+  VERSION ${PROJECT_VERSION}
+  COMPATIBILITY SameMajorVersion)
+install(FILES
+  ${CMAKE_CURRENT_BINARY_DIR}/LiteQueryConfig.cmake
+  ${CMAKE_CURRENT_BINARY_DIR}/LiteQueryConfigVersion.cmake
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/LiteQuery)

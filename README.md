@@ -1,5 +1,10 @@
 # LiteQuery
 
+[![CI](https://github.com/yuri-3003/LiteQuery/actions/workflows/ci.yml/badge.svg)](https://github.com/yuri-3003/LiteQuery/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Standard](https://img.shields.io/badge/C%2B%2B-17-00599C.svg)](https://en.cppreference.com/w/cpp/17)
+[![Dependencies](https://img.shields.io/badge/dependencies-zero-brightgreen.svg)](#build)
+
 **An embeddable, zero-dependency columnar SQL query engine in C++17.**
 
 LiteQuery drops into any application through a single C header — exactly like
@@ -27,6 +32,26 @@ lq_close(db);
 - **Truly embeddable.** One public C header (`litequery.h`); link one static library. Usable from C, C++, and any language with a C FFI.
 - **Columnar storage.** Each column is stored contiguously so scans and aggregations are cache-friendly.
 - **Real query pipeline.** Lexer → Parser → Logical plan → Rule-based optimizer → Vectorized physical operators.
+
+---
+
+## Try it in 60 seconds
+
+```bash
+git clone https://github.com/yuri-3003/LiteQuery.git
+cd LiteQuery
+
+# Linux / macOS
+./build.sh && ./build/lq_demo
+
+# Windows (PowerShell)
+.\build.ps1 ; .\build\lq_demo.exe
+```
+
+`build.sh` / `build.ps1` configure, build, run the tests, and leave you a
+`liblitequery.a` plus the `lq_demo` binary. You should see analytical queries —
+`GROUP BY`, aggregates, joins, `ORDER BY`, and an `EXPLAIN` plan — run against a
+sample table.
 
 ---
 
@@ -95,6 +120,25 @@ Run the demo:
 | `LITEQUERY_BUILD_TESTS` | `ON`  | Build `lq_tests` and `lq_capi_test` |
 | `LITEQUERY_BUILD_DEMO`  | `ON`  | Build `lq_demo` |
 | `LITEQUERY_ASAN`        | `OFF` | Build with AddressSanitizer + UBSan (where the toolchain provides them) |
+
+### Install & consume via CMake
+
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+cmake --install build --prefix /your/install/prefix
+```
+
+Then in your own project's `CMakeLists.txt`:
+
+```cmake
+find_package(LiteQuery REQUIRED)
+target_link_libraries(myapp PRIVATE LiteQuery::litequery)
+```
+
+> If your application's own source is `.c` (using the C API), still enable the
+> C++ language in your project — `project(myapp LANGUAGES C CXX)` — because the
+> final link needs the C++ runtime.
 
 ### One-line build (no CMake)
 
