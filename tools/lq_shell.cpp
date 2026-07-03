@@ -15,6 +15,7 @@
 // ============================================================================
 
 #include "connection.h"
+#include "litequery/litequery.h"   // LITEQUERY_VERSION_STRING
 
 #include <algorithm>
 #include <cstdio>
@@ -390,7 +391,7 @@ struct Shell {
         return 0;
     }
 
-    static const char* lqVersion() { return "0.1.0"; }
+    static const char* lqVersion() { return LITEQUERY_VERSION_STRING; }
 };
 
 bool stdinIsTty() {

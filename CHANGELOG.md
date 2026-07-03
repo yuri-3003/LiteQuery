@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-07-03
+
+Product milestone: LiteQuery goes from "a working engine" to "a tool people can
+use" — an interactive shell, CSV ingestion, a typed columnar fast path that
+beats SQLite on analytics, CI/packaging, and Python bindings.
+
 ### Added
 - **Python bindings** (`bindings/python/`): pure-`ctypes` wrapper over the C
   API — no pybind11/Cython, works with any CPython. `litequery.connect()` →
@@ -96,5 +102,6 @@ First working release: an embeddable columnar SQL query engine in C++17.
   execution are partial or unimplemented.
 - No CSV/Parquet ingestion and no language bindings yet.
 
-[Unreleased]: https://github.com/yuri-3003/LiteQuery/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/yuri-3003/LiteQuery/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/yuri-3003/LiteQuery/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/yuri-3003/LiteQuery/releases/tag/v0.1.0

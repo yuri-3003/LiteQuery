@@ -46,9 +46,9 @@ extern "C" {
 /* ---- Version -------------------------------------------------------------*/
 
 #define LITEQUERY_VERSION_MAJOR 0
-#define LITEQUERY_VERSION_MINOR 1
+#define LITEQUERY_VERSION_MINOR 2
 #define LITEQUERY_VERSION_PATCH 0
-#define LITEQUERY_VERSION_STRING "0.1.0"
+#define LITEQUERY_VERSION_STRING "0.2.0"
 
 /* Returns the library version string, e.g. "0.1.0". */
 const char* lq_version(void);
