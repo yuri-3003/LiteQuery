@@ -122,6 +122,27 @@ extern "C" lq_status lq_exec(lq_db* db, const char* sql,
     });
 }
 
+extern "C" lq_status lq_import_csv(lq_db* db, const char* path, const char* table_name,
+                                   char delimiter, int has_header,
+                                   int64_t* rows, const char** out_error) {
+    if (!db || !path || !table_name) return LQ_MISUSE;
+    LQ_GUARD_STATUS({
+        lq::QueryResult r = db->conn.importCsv(path, table_name,
+                                               delimiter ? delimiter : ',',
+                                               has_header != 0);
+        if (!r.ok()) {
+            if (out_error) {
+                thread_local std::string err;
+                err = r.errorMessage;
+                *out_error = err.c_str();
+            }
+            return LQ_ERROR;
+        }
+        if (rows) *rows = r.rowsAffected;
+        return LQ_OK;
+    });
+}
+
 // ============================================================================
 // Result inspection
 // ============================================================================

@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "litequery"
+version = "0.1.0"
+description = "Python bindings for LiteQuery — an embeddable columnar SQL query engine"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+authors = [{ name = "LiteQuery contributors" }]
+keywords = ["sql", "database", "columnar", "analytics", "embedded", "olap"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: C++",
+    "Topic :: Database :: Database Engines/Servers",
+]
+# No runtime Python dependencies — the binding is pure ctypes over the C API.
+dependencies = []
+
+[project.optional-dependencies]
+pandas = ["pandas"]
+test = ["pytest"]
+
+[project.urls]
+Homepage = "https://github.com/yuri-3003/LiteQuery"
+Source = "https://github.com/yuri-3003/LiteQuery"
+Issues = "https://github.com/yuri-3003/LiteQuery/issues"
+
+[tool.setuptools]
+# Ship the compiled shared library that lives inside the package directory
+# (liblitequery.dll / .so / .dylib), placed there by the build step.
+packages = ["litequery"]
+
+[tool.setuptools.package-data]
+litequery = ["*.dll", "*.so", "*.dylib"]

@@ -255,6 +255,28 @@ for (const auto& row : r.rows)
 std::cout << db.explain("SELECT SUM(v) FROM t WHERE v > 1 GROUP BY id");
 ```
 
+### From Python
+
+Pure-`ctypes` bindings — no pybind11/Cython, works with any CPython:
+
+```python
+import litequery
+
+with litequery.connect() as db:
+    db.import_csv("sales.csv", "sales")           # names + types inferred
+    for row in db.query("SELECT region, SUM(amount) AS total "
+                        "FROM sales GROUP BY region ORDER BY total DESC"):
+        print(row["region"], row["total"])
+```
+
+```bash
+cd bindings/python && python build_lib.py && pip install .
+```
+
+The build produces a **self-contained** shared library (statically linked C++
+runtime), so the module loads on any CPython regardless of how it was compiled.
+Full guide: [bindings/python/README.md](bindings/python/README.md).
+
 ---
 
 ## Architecture at a glance

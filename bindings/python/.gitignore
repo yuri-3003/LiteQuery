@@ -1,0 +1,12 @@
+# The compiled shared library is a build artifact placed here by build_lib.py
+# (or the CMake build); it is platform-specific and not committed.
+litequery/*.dll
+litequery/*.so
+litequery/*.dylib
+
+# Python build/packaging output
+build/
+dist/
+*.egg-info/
+__pycache__/
+*.pyc

@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Python bindings** (`bindings/python/`): pure-`ctypes` wrapper over the C
+  API — no pybind11/Cython, works with any CPython. `litequery.connect()` →
+  `Connection` with `query()` / `execute()` / `import_csv()`; a `Result` that
+  iterates `Row`s (dict + positional access) with `.scalar()`, `.tuples()`,
+  `.to_pandas()`. `pip install .` ships a **self-contained** shared library
+  (statically-linked C++ runtime) so it loads regardless of how CPython was
+  built. 9 unittest tests.
+- **Shared library target** (`litequery_shared`, on by default): builds
+  `liblitequery.{dll,so,dylib}` exposing the C API for FFI consumers.
+- **`lq_import_csv`** added to the C API so C and Python callers can load CSVs.
 - **LiteQuery-vs-SQLite benchmark** (`lq_vs_sqlite`, opt-in via
   `-DLITEQUERY_BUILD_SQLITE_BENCH=ON`): runs identical data and queries through
   both engines, reports both timings, and cross-checks that every result agrees.

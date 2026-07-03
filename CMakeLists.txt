@@ -46,7 +46,7 @@ else()
 endif()
 
 # ---- The library -----------------------------------------------------------
-add_library(litequery STATIC
+set(LITEQUERY_SOURCES
   src/parser/lexer.cpp
   src/parser/parser.cpp
   src/planner/logical_plan.cpp
@@ -58,6 +58,8 @@ add_library(litequery STATIC
   src/api/connection.cpp
   src/api/c_api.cpp
 )
+
+add_library(litequery STATIC ${LITEQUERY_SOURCES})
 
 # Public include dir (the C header) is exposed to consumers; internal headers
 # are visible only to the library's own translation units.
@@ -87,6 +89,37 @@ set(LITEQUERY_INTERNAL_INCLUDES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/execution
   ${CMAKE_CURRENT_SOURCE_DIR}/src/api
 )
+
+# ---- Shared library (for the Python/ctypes bindings and other FFI users) ----
+# Exposes the pure-C API (litequery.h) from a single .dll/.so/.dylib that any
+# language with a C FFI can dlopen — independent of how the host runtime was
+# compiled (important on Windows, where the Python is MSVC-built but this may be
+# compiled with mingw GCC).
+option(LITEQUERY_BUILD_SHARED "Build the shared library (C API)" ON)
+if(LITEQUERY_BUILD_SHARED)
+  add_library(litequery_shared SHARED ${LITEQUERY_SOURCES})
+  target_include_directories(litequery_shared
+    PUBLIC  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    PRIVATE ${LITEQUERY_INTERNAL_INCLUDES})
+  target_link_libraries(litequery_shared PRIVATE $<BUILD_INTERFACE:lq_flags>)
+  # A stable output name: liblitequery.so / liblitequery.dll / liblitequery.dylib
+  set_target_properties(litequery_shared PROPERTIES
+    OUTPUT_NAME litequery
+    WINDOWS_EXPORT_ALL_SYMBOLS ON)   # export the extern "C" API for ctypes
+  # Statically link the compiler runtime so the shared library is self-contained
+  # — it can then be loaded by any host (e.g. an MSVC-built Python via ctypes)
+  # without the toolchain's runtime DLLs needing to be on the search path.
+  if(MINGW OR (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND WIN32))
+    target_link_options(litequery_shared PRIVATE
+      -static -static-libgcc -static-libstdc++)
+  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    target_link_options(litequery_shared PRIVATE -static-libgcc -static-libstdc++)
+  endif()
+  install(TARGETS litequery_shared
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+endif()
 
 # ---- Tests -----------------------------------------------------------------
 if(LITEQUERY_BUILD_TESTS)

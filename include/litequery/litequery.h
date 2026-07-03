@@ -103,6 +103,15 @@ lq_result* lq_query(lq_db* db, const char* sql);
 lq_status lq_exec(lq_db* db, const char* sql,
                   int64_t* affected, const char** out_error);
 
+/* Load a CSV/TSV file into a new table `table_name`, inferring column names
+ * from the header and column types per column. `delimiter` is ',' for CSV or
+ * '\t' for TSV; `has_header` (non-zero) names columns from the first row.
+ * Returns LQ_OK and writes rows-loaded to *rows if non-NULL; on error returns
+ * LQ_ERROR and points *out_error (if non-NULL) at the message. */
+lq_status lq_import_csv(lq_db* db, const char* path, const char* table_name,
+                        char delimiter, int has_header,
+                        int64_t* rows, const char** out_error);
+
 /* ==========================================================================
  * Result inspection
  * ========================================================================*/
