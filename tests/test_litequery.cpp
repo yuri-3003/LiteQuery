@@ -328,6 +328,73 @@ TEST(drop_table) {
 }
 
 // ============================================================================
+// Typed fast-aggregate path — must match the general path exactly
+// ============================================================================
+
+TEST(fast_agg_count_sum_avg_minmax) {
+    Connection c = makeDb();
+    CHECK_EQ(scalar(c, "SELECT COUNT(*) FROM emp"), 5.0);
+    CHECK_EQ(scalar(c, "SELECT SUM(salary) FROM emp"), 515.0);
+    CHECK_EQ(scalar(c, "SELECT AVG(salary) FROM emp"), 103.0);
+    CHECK_EQ(scalar(c, "SELECT MIN(salary) FROM emp"), 90.0);
+    CHECK_EQ(scalar(c, "SELECT MAX(salary) FROM emp"), 120.0);
+}
+
+TEST(fast_agg_with_where) {
+    Connection c = makeDb();
+    // WHERE salary > 100 keeps Bob(120) and Ed(110): count 2, sum 230.
+    CHECK_EQ(scalar(c, "SELECT COUNT(*) FROM emp WHERE salary > 100"), 2.0);
+    CHECK_EQ(scalar(c, "SELECT SUM(salary) FROM emp WHERE salary > 100"), 230.0);
+    // Conjunction: dept = 'Eng' AND salary >= 110 → Bob, Ed.
+    CHECK_EQ(scalar(c, "SELECT COUNT(*) FROM emp WHERE dept = 'Eng' AND salary >= 110"), 2.0);
+}
+
+TEST(fast_agg_group_by_ordered) {
+    Connection c = makeDb();
+    QueryResult r = c.query(
+        "SELECT dept, SUM(salary) AS total FROM emp GROUP BY dept ORDER BY total DESC");
+    CHECK(r.ok());
+    CHECK_EQ(r.rows.size(), (size_t)2);
+    CHECK_EQ(r.rows[0][0].getString(), std::string("Eng"));   // 330 > 185
+    CHECK_EQ(r.rows[0][1].toDouble(), 330.0);
+    CHECK_EQ(r.rows[1][1].toDouble(), 185.0);
+}
+
+TEST(fast_agg_skips_nulls) {
+    Connection c;
+    c.query("CREATE TABLE t (v DOUBLE)");
+    c.query("INSERT INTO t VALUES (10.0), (NULL), (20.0), (NULL)");
+    CHECK_EQ(scalar(c, "SELECT COUNT(*) FROM t"), 4.0);      // COUNT(*) counts all
+    CHECK_EQ(scalar(c, "SELECT COUNT(v) FROM t"), 2.0);      // COUNT(v) skips NULLs
+    CHECK_EQ(scalar(c, "SELECT SUM(v) FROM t"), 30.0);
+    CHECK_EQ(scalar(c, "SELECT AVG(v) FROM t"), 15.0);       // 30 / 2, not / 4
+}
+
+TEST(fast_agg_empty_table) {
+    Connection c;
+    c.query("CREATE TABLE t (v INT)");
+    // Aggregate over no rows: COUNT → 0, SUM → NULL.
+    QueryResult r = c.query("SELECT COUNT(*), SUM(v) FROM t");
+    CHECK(r.ok());
+    CHECK_EQ(r.rows.size(), (size_t)1);
+    CHECK_EQ(r.rows[0][0].toInt64(), (int64_t)0);
+    CHECK(r.rows[0][1].isNull());
+}
+
+TEST(fast_agg_matches_manual_group_by) {
+    // Cross-check: build 6 groups and verify each SUM independently.
+    Connection c;
+    c.query("CREATE TABLE t (g INT, v INT)");
+    c.query("INSERT INTO t VALUES (1,10),(2,20),(1,5),(3,7),(2,3),(1,1)");
+    QueryResult r = c.query("SELECT g, SUM(v) FROM t GROUP BY g ORDER BY g");
+    CHECK(r.ok());
+    CHECK_EQ(r.rows.size(), (size_t)3);
+    CHECK_EQ(r.rows[0][1].toDouble(), 16.0);   // g=1: 10+5+1
+    CHECK_EQ(r.rows[1][1].toDouble(), 23.0);   // g=2: 20+3
+    CHECK_EQ(r.rows[2][1].toDouble(), 7.0);    // g=3: 7
+}
+
+// ============================================================================
 // CSV ingestion
 // ============================================================================
 

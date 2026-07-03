@@ -10,6 +10,7 @@
 #include "ast.h"
 #include "eval.h"
 #include "physical_plan.h"
+#include "fast_aggregate.h"
 #include "logical_plan.h"
 #include "optimizer.h"
 #include "csv_reader.h"
@@ -375,6 +376,13 @@ static QueryResult runInsert(const InsertStmt& ins, Catalog& cat) {
 }
 
 static QueryResult runSelect(const SelectStmt& stmt, Catalog& cat) {
+    // Fast path: typed vectorized execution for the common aggregate shape
+    // (SELECT [key,] AGG(col)... FROM t [WHERE simple] [GROUP BY key]). Returns
+    // nullopt when the query doesn't match, in which case we use the general
+    // operator tree. Both paths must agree on results (tested).
+    if (auto fast = tryFastAggregate(stmt, cat))
+        return std::move(*fast);
+
     exec::OperatorPtr root = buildSelect(stmt, cat);
     Batch out = exec::drain(*root);
 

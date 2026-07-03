@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Typed columnar storage**: columns now store contiguous typed buffers
+  (`int64`/`double`/`string`) plus a 1-bit-per-row validity bitmap, instead of
+  boxed `std::vector<Value>`. A `double` column is ~8 bytes/value + 1 bit versus
+  ~40 bytes boxed. The `Table`/`Column` value API is unchanged.
+- **Typed vectorized execution** for the common aggregate shape
+  (`SELECT [key,] AGG(col)… FROM t [WHERE simple] [GROUP BY key]`): runs directly
+  over the typed column arrays with no boxing or per-row variant dispatch, with
+  a safe fallback to the general operator tree for anything that doesn't match.
+  Measured 3–26× faster than the boxed path (see `bench/`).
+- **Benchmark harness** (`lq_bench`): times full-scan / filtered / grouped
+  aggregates over a generated table; `bench/README.md` documents the numbers.
 - **CSV/TSV ingestion**: `Connection::importCsv()` and the shell's `.import FILE
   TABLE` load a delimited file into a new table, inferring column names (header)
   and types per column. Handles RFC-4180 quoting, `""` escapes, embedded

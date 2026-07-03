@@ -113,16 +113,39 @@ suite that runs green under a Release build.
 | Interactive `lq` shell (REPL, table/csv/json output, `.import`) | ✅ |
 | C API (`lq_open`/`lq_query`/`lq_result_*`) — used from pure C | ✅ |
 
-**Known limitations** (candidly): the `Value`-boxed storage/execution path is a
-correct MVP, not yet the typed-buffer fast path; `HAVING` and subqueries in
-`WHERE`/`FROM` are partial; `INSERT … SELECT` is not implemented; the optimizer
-runs on a logical plan that is separate from the executor's AST-driven path. See
-[docs/architecture.md](docs/architecture.md) and the [Roadmap](#roadmap).
+**Known limitations** (candidly): the typed columnar fast path covers the common
+aggregate shape (`SELECT [key,] AGG(col)… FROM t [WHERE simple] [GROUP BY key]`);
+other queries still use the correct-but-boxed general executor. `HAVING` and
+subqueries in `WHERE`/`FROM` are partial; `INSERT … SELECT` is not implemented;
+the optimizer runs on a logical plan that is separate from the executor's
+AST-driven path. See [docs/architecture.md](docs/architecture.md) and the
+[Roadmap](#roadmap).
 
 > Note on provenance: this repository was reconstructed from a partial snapshot.
 > The front-end (type system, lexer, AST, logical planner, optimizer) predates
 > this work; the parser, storage, evaluator, physical operators, connection
 > pipeline, C API, tests, build, and docs were completed to make it run.
+
+---
+
+## Performance
+
+Data is stored **column-by-column** in typed contiguous buffers (an `int64`/
+`double` array + a 1-bit-per-row validity bitmap), and the common analytical
+query shape runs through a **typed vectorized execution path** — no boxing, no
+per-row `std::variant` dispatch. Measured against the earlier boxed executor on
+5 M rows (single thread, `-O2`):
+
+| Query | Boxed | Typed columnar | Speedup |
+|---|---|---|---|
+| `SELECT COUNT(*) FROM t` | ~12 M rows/s | **~306 M rows/s** | **~26×** |
+| `SELECT SUM(x) FROM t` | ~14 M rows/s | **~241 M rows/s** | **~17×** |
+| `SELECT AVG(x) FROM t WHERE x>500` | ~8 M rows/s | **~90 M rows/s** | **~10×** |
+| `SELECT cat, SUM(x) FROM t GROUP BY cat` | ~7 M rows/s | **~23 M rows/s** | **~3×** |
+
+Reproduce with `cmake --build build --target lq_bench && ./build/lq_bench`. See
+[bench/README.md](bench/README.md). (A LiteQuery-vs-SQLite comparison is the next
+roadmap phase.)
 
 ---
 

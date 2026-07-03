@@ -29,6 +29,7 @@ endif()
 option(LITEQUERY_BUILD_TESTS "Build the test suites"          ON)
 option(LITEQUERY_BUILD_DEMO  "Build the CLI demo"            ON)
 option(LITEQUERY_BUILD_SHELL "Build the lq interactive shell" ON)
+option(LITEQUERY_BUILD_BENCH "Build the benchmark harness"    ON)
 option(LITEQUERY_ASAN        "Build with AddressSanitizer/UBSan" OFF)
 
 # ---- Warnings / sanitizers -------------------------------------------------
@@ -51,6 +52,7 @@ add_library(litequery STATIC
   src/planner/optimizer.cpp
   src/execution/eval.cpp
   src/execution/physical_plan.cpp
+  src/execution/fast_aggregate.cpp
   src/storage/csv_reader.cpp
   src/api/connection.cpp
   src/api/c_api.cpp
@@ -116,6 +118,13 @@ if(LITEQUERY_BUILD_SHELL)
   target_include_directories(lq PRIVATE ${LITEQUERY_INTERNAL_INCLUDES})
   target_link_libraries(lq PRIVATE litequery lq_flags)
   install(TARGETS lq RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+endif()
+
+# ---- Benchmark harness -----------------------------------------------------
+if(LITEQUERY_BUILD_BENCH)
+  add_executable(lq_bench bench/bench.cpp)
+  target_include_directories(lq_bench PRIVATE ${LITEQUERY_INTERNAL_INCLUDES})
+  target_link_libraries(lq_bench PRIVATE litequery lq_flags)
 endif()
 
 # ---- Install & package export ----------------------------------------------

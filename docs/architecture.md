@@ -122,12 +122,30 @@ per rule and tracks per-rule statistics (`OptimizerStats`).
 `PlanPrinter::print` renders the (optimized) plan as the indented tree you see
 from `Connection::explain`.
 
-## Storage (`storage/table.h`, `catalog/catalog.h`)
+## Storage (`storage/column.h`, `storage/table.h`, `catalog/catalog.h`)
 
-A `Table` owns one `Column` per schema field; a `Column` is a contiguous
-`vector<Value>`. `Catalog` maps table names to `shared_ptr<Table>` and guards
-access with a `shared_mutex` (many readers, exclusive writers). It also hands
-out plan node ids (`allocNodeId`).
+A `Table` owns one `Column` per schema field. A `Column` (`storage/column.h`)
+stores its values in a **typed contiguous buffer** — one of `vector<int64_t>`,
+`vector<double>`, or `vector<string>` chosen by the column's `TypeId` — plus an
+Arrow-style `ValidityBitmap` (1 bit/row, 1 = non-null). Narrow integers are
+widened to int64 in memory; the declared `DataType` is kept for the schema.
+
+The column exposes both a boxed API (`operator[] → Value`, `append(Value)`) for
+row-oriented operators and tests, and typed accessors (`i64()`, `f64()`,
+`str()`, `validity()`) for the hot paths. `Catalog` maps table names to
+`shared_ptr<Table>`, guards access with a `shared_mutex`, and hands out plan
+node ids (`allocNodeId`).
+
+## Typed fast aggregate (`execution/fast_aggregate.*`)
+
+`tryFastAggregate()` recognizes the common analytical shape — `SELECT [key,]
+AGG(col)… FROM <single table> [WHERE conjunction of col<op>const] [GROUP BY
+key]` — and executes it directly over the typed column arrays: no `Batch`, no
+boxing, no per-row `std::variant` dispatch. It's tried first in
+`Connection::runSelect`; when the query doesn't match (joins, subqueries,
+complex predicates, `HAVING`, `COUNT(DISTINCT)`, …) it returns `nullopt` and the
+general operator tree runs instead. Both paths are covered by the same tests, so
+they can't silently diverge. This is 3–26× faster than the boxed path (`bench/`).
 
 ## Expression evaluator (`execution/eval.*`)
 
