@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **`lq` interactive SQL shell**: a REPL over the engine with multi-line
+  statements, `table`/`csv`/`json`/`list` output modes, and `.help` / `.tables`
+  / `.schema` / `.mode` / `.timing` / `.read` / `.quit` dot-commands. Runs
+  files (`lq script.sql`), stdin pipes, and one-shot `-c "SQL"`.
 - GitHub Actions CI: build + test on Linux (GCC/Clang), macOS, and Windows,
   plus an AddressSanitizer/UBSan job on Linux.
 - CMake install/export: `find_package(LiteQuery)` provides the imported target

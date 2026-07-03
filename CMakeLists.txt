@@ -26,8 +26,9 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 # ---- Options ---------------------------------------------------------------
-option(LITEQUERY_BUILD_TESTS "Build the test suites" ON)
-option(LITEQUERY_BUILD_DEMO  "Build the CLI demo"    ON)
+option(LITEQUERY_BUILD_TESTS "Build the test suites"          ON)
+option(LITEQUERY_BUILD_DEMO  "Build the CLI demo"            ON)
+option(LITEQUERY_BUILD_SHELL "Build the lq interactive shell" ON)
 option(LITEQUERY_ASAN        "Build with AddressSanitizer/UBSan" OFF)
 
 # ---- Warnings / sanitizers -------------------------------------------------
@@ -106,6 +107,14 @@ if(LITEQUERY_BUILD_DEMO)
   add_executable(lq_demo examples/demo.cpp)
   target_include_directories(lq_demo PRIVATE ${LITEQUERY_INTERNAL_INCLUDES})
   target_link_libraries(lq_demo PRIVATE litequery lq_flags)
+endif()
+
+# ---- Interactive shell (the `lq` binary) -----------------------------------
+if(LITEQUERY_BUILD_SHELL)
+  add_executable(lq tools/lq_shell.cpp)
+  target_include_directories(lq PRIVATE ${LITEQUERY_INTERNAL_INCLUDES})
+  target_link_libraries(lq PRIVATE litequery lq_flags)
+  install(TARGETS lq RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif()
 
 # ---- Install & package export ----------------------------------------------

@@ -49,9 +49,35 @@ cd LiteQuery
 ```
 
 `build.sh` / `build.ps1` configure, build, run the tests, and leave you a
-`liblitequery.a` plus the `lq_demo` binary. You should see analytical queries —
-`GROUP BY`, aggregates, joins, `ORDER BY`, and an `EXPLAIN` plan — run against a
-sample table.
+`liblitequery.a` plus the `lq_demo` and `lq` binaries.
+
+---
+
+## The `lq` shell
+
+Prefer typing SQL over writing code? The build produces an interactive shell:
+
+```
+$ ./build/lq
+LiteQuery v0.1.0  ·  type .help for commands, .quit to exit
+lq> CREATE TABLE emp (id INT, name VARCHAR, dept VARCHAR, salary DOUBLE);
+OK
+lq> INSERT INTO emp VALUES (1,'Ann','Eng',100),(2,'Bob','Eng',120),(3,'Cy','Sales',90);
+OK  (3 rows affected)
+lq> SELECT dept, COUNT(*), SUM(salary), AVG(salary) FROM emp GROUP BY dept ORDER BY dept;
+┌───────┬───────┬─────┬─────┐
+│ dept  │ COUNT │ SUM │ AVG │
+├───────┼───────┼─────┼─────┤
+│ Eng   │ 2     │ 220 │ 110 │
+│ Sales │ 1     │ 90  │ 90  │
+└───────┴───────┴─────┴─────┘
+2 rows  ·  54 µs
+```
+
+It runs files (`lq script.sql`), stdin (`echo "SELECT 1" | lq`), and one-shot
+statements (`lq -c "SELECT 1+1"`); has `.tables` / `.schema` / `.read`
+meta-commands; and outputs `table`, `csv`, or `json` via `.mode`. Full guide:
+[docs/shell.md](docs/shell.md).
 
 ---
 
