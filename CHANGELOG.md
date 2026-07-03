@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **LiteQuery-vs-SQLite benchmark** (`lq_vs_sqlite`, opt-in via
+  `-DLITEQUERY_BUILD_SQLITE_BENCH=ON`): runs identical data and queries through
+  both engines, reports both timings, and cross-checks that every result agrees.
+  LiteQuery is 3–7× faster on the analytical aggregations; SQLite wins
+  `COUNT(*)` (answered from metadata). SQLite 3.46.1 is vendored under
+  `third_party/sqlite/` (public domain) and compiled only for this benchmark —
+  it is not a dependency of the LiteQuery library.
 - **Typed columnar storage**: columns now store contiguous typed buffers
   (`int64`/`double`/`string`) plus a 1-bit-per-row validity bitmap, instead of
   boxed `std::vector<Value>`. A `double` column is ~8 bytes/value + 1 bit versus

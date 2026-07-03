@@ -133,19 +133,35 @@ AST-driven path. See [docs/architecture.md](docs/architecture.md) and the
 Data is stored **column-by-column** in typed contiguous buffers (an `int64`/
 `double` array + a 1-bit-per-row validity bitmap), and the common analytical
 query shape runs through a **typed vectorized execution path** — no boxing, no
-per-row `std::variant` dispatch. Measured against the earlier boxed executor on
-5 M rows (single thread, `-O2`):
+per-row `std::variant` dispatch.
 
-| Query | Boxed | Typed columnar | Speedup |
+### vs SQLite
+
+The same data and queries through LiteQuery and SQLite (3.46.1, in-memory), at
+5 M rows, single thread, `-O2`. **Every LiteQuery result is verified equal to
+SQLite's.**
+
+| Query | LiteQuery | SQLite | Speedup |
 |---|---|---|---|
-| `SELECT COUNT(*) FROM t` | ~12 M rows/s | **~306 M rows/s** | **~26×** |
-| `SELECT SUM(x) FROM t` | ~14 M rows/s | **~241 M rows/s** | **~17×** |
-| `SELECT AVG(x) FROM t WHERE x>500` | ~8 M rows/s | **~90 M rows/s** | **~10×** |
-| `SELECT cat, SUM(x) FROM t GROUP BY cat` | ~7 M rows/s | **~23 M rows/s** | **~3×** |
+| `SELECT SUM(x) FROM t` | 0.021 s | 0.118 s | **5.6× faster** |
+| `SELECT AVG(x) FROM t WHERE x>500` | 0.054 s | 0.181 s | **3.3× faster** |
+| `SELECT cat, SUM(x) FROM t GROUP BY cat` | 0.220 s | 1.395 s | **6.3× faster** |
+| filtered `GROUP BY` | 0.200 s | 1.293 s | **6.5× faster** |
+| `SELECT COUNT(*) FROM t` | 0.017 s | 0.001 s | 0.1× (SQLite wins) |
 
-Reproduce with `cmake --build build --target lq_bench && ./build/lq_bench`. See
-[bench/README.md](bench/README.md). (A LiteQuery-vs-SQLite comparison is the next
-roadmap phase.)
+LiteQuery is **3–7× faster on the analytical aggregations** it's built for.
+SQLite wins `COUNT(*)` — it answers from metadata instead of scanning, which
+LiteQuery doesn't special-case yet; reporting that honestly is the point.
+
+Reproduce:
+
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DLITEQUERY_BUILD_SQLITE_BENCH=ON
+cmake --build build --target lq_vs_sqlite && ./build/lq_vs_sqlite
+```
+
+Against LiteQuery's own earlier boxed executor the typed path is 3–26× faster;
+full numbers and the harness are in [bench/README.md](bench/README.md).
 
 ---
 

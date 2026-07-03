@@ -30,6 +30,7 @@ option(LITEQUERY_BUILD_TESTS "Build the test suites"          ON)
 option(LITEQUERY_BUILD_DEMO  "Build the CLI demo"            ON)
 option(LITEQUERY_BUILD_SHELL "Build the lq interactive shell" ON)
 option(LITEQUERY_BUILD_BENCH "Build the benchmark harness"    ON)
+option(LITEQUERY_BUILD_SQLITE_BENCH "Build the LiteQuery-vs-SQLite benchmark (compiles vendored SQLite)" OFF)
 option(LITEQUERY_ASAN        "Build with AddressSanitizer/UBSan" OFF)
 
 # ---- Warnings / sanitizers -------------------------------------------------
@@ -125,6 +126,27 @@ if(LITEQUERY_BUILD_BENCH)
   add_executable(lq_bench bench/bench.cpp)
   target_include_directories(lq_bench PRIVATE ${LITEQUERY_INTERNAL_INCLUDES})
   target_link_libraries(lq_bench PRIVATE litequery lq_flags)
+endif()
+
+# ---- LiteQuery vs SQLite comparison (opt-in; compiles vendored SQLite) ------
+if(LITEQUERY_BUILD_SQLITE_BENCH)
+  # SQLite amalgamation as its own static lib (its warnings are not ours).
+  add_library(sqlite3 STATIC third_party/sqlite/sqlite3.c)
+  target_include_directories(sqlite3 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/third_party/sqlite)
+  target_compile_definitions(sqlite3 PRIVATE
+    SQLITE_OMIT_LOAD_EXTENSION SQLITE_THREADSAFE=0 SQLITE_DEFAULT_MEMSTATUS=0)
+  if(NOT MSVC)
+    target_compile_options(sqlite3 PRIVATE -w -O2)
+  endif()
+  # Some SQLite features need dl/pthread on Unix.
+  find_package(Threads QUIET)
+  if(Threads_FOUND)
+    target_link_libraries(sqlite3 PUBLIC Threads::Threads)
+  endif()
+
+  add_executable(lq_vs_sqlite bench/bench_sqlite.cpp)
+  target_include_directories(lq_vs_sqlite PRIVATE ${LITEQUERY_INTERNAL_INCLUDES})
+  target_link_libraries(lq_vs_sqlite PRIVATE litequery sqlite3 lq_flags)
 endif()
 
 # ---- Install & package export ----------------------------------------------
