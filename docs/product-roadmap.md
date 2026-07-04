@@ -113,18 +113,22 @@ incremental/append-safe writes are a later refinement.
 
 ---
 
-## Phase 6 — SQL completeness  ⬜
+## Phase 6 — SQL completeness  🔨 (major items done)
 *Goal: close the gaps that make users hit "not supported" walls.*
 *Effort: M–L. Depends on: nothing hard, but best after the executor is unified.*
 
-- [ ] `HAVING` fully wired over aggregate output
-- [ ] Subqueries in `WHERE` / `FROM`; scalar subqueries; `IN (subquery)`
-- [ ] `INSERT … SELECT`; `UPDATE`; `DELETE`
-- [ ] Set operations execution: `UNION`/`UNION ALL`/`INTERSECT`/`EXCEPT`
+- [x] `HAVING` fully wired — aggregate expressions, incl. aggregates not in SELECT
+- [x] `ORDER BY` bare aggregates + expressions over aggregates in SELECT
+- [x] `UNION` / `UNION ALL` execution (fixed: UNION was silently dropped)
+- [x] `INSERT … SELECT`
+- [ ] Subqueries in `WHERE` (scalar, `IN (subquery)`); `FROM` subqueries work
+- [ ] `UPDATE`; `DELETE`; `INTERSECT`/`EXCEPT`
 - [ ] More scalar/date functions; `CAST` `::` shorthand
 - [ ] Unify optimizer's logical plan with the execution path
 
-**Unlocks:** "it just works" for the queries developers actually write.
+**Delivered:** aggregate-bearing expressions are rewritten onto aggregate output
+slots (each aggregate computed once) with a real final projection, which
+unlocked HAVING/ORDER BY/SELECT expressions in one mechanism.
 
 ---
 

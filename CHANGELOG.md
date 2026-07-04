@@ -8,6 +8,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **SQL completeness batch**:
+  - `HAVING` with aggregate expressions (`HAVING SUM(x) > 10`), including
+    aggregates not present in the SELECT list.
+  - `ORDER BY` bare aggregates (`ORDER BY SUM(x)` — no alias needed).
+  - **Expressions over aggregates** in the SELECT list
+    (`SELECT SUM(x)/COUNT(*)`, `MAX(v) - MIN(v)`).
+  - `UNION` / `UNION ALL` execution via a new `Append` operator (`UNION`
+    deduplicates; column-count mismatch is a clean error).
+  - `INSERT … SELECT`.
+  Implemented by rewriting aggregate-bearing expressions into references to
+  aggregate output slots (each distinct aggregate computed once), with a real
+  final projection for aggregate queries.
+
+### Fixed
+- **`UNION` was silently dropped**: `SELECT … UNION ALL SELECT …` previously
+  returned only the left side's rows with no error. Both branches now execute.
+- Aggregate queries now project exactly the SELECT list — previously the
+  aggregate output (group keys + all aggregates, incl. HAVING-only ones) leaked
+  into the result shape.
+
+### Added (previous batch)
 - **Persistence** — save/load a whole database (all tables + data) to a single
   file. New `Connection::saveDatabase`/`loadDatabase`, C API `lq_save`/`lq_load`,
   shell `.save`/`.open`, and `save`/`load` in the Python and Rust bindings. The

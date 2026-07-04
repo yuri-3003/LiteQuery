@@ -328,6 +328,102 @@ TEST(drop_table) {
 }
 
 // ============================================================================
+// SQL completeness — HAVING, ORDER BY aggregates, UNION, INSERT..SELECT
+// ============================================================================
+
+TEST(having_with_aggregate_expression) {
+    Connection c = makeDb();
+    // Eng sum=330, Sales sum=185 → only Eng passes.
+    QueryResult r = c.query(
+        "SELECT dept, SUM(salary) FROM emp GROUP BY dept HAVING SUM(salary) > 200");
+    CHECK(r.ok());
+    CHECK_EQ(r.rows.size(), (size_t)1);
+    CHECK_EQ(r.rows[0][0].getString(), std::string("Eng"));
+    CHECK_EQ(r.rows[0][1].toDouble(), 330.0);
+}
+
+TEST(having_aggregate_not_in_select) {
+    Connection c = makeDb();
+    // HAVING references COUNT(*) which is not in the SELECT list.
+    QueryResult r = c.query(
+        "SELECT dept FROM emp GROUP BY dept HAVING COUNT(*) > 2");
+    CHECK(r.ok());
+    CHECK_EQ(r.rows.size(), (size_t)1);            // only Eng has 3 people
+    CHECK_EQ(r.rows[0][0].getString(), std::string("Eng"));
+    CHECK_EQ(r.schema.size(), (size_t)1);          // COUNT must NOT leak into output
+}
+
+TEST(order_by_bare_aggregate) {
+    Connection c = makeDb();
+    QueryResult r = c.query(
+        "SELECT dept, SUM(salary) FROM emp GROUP BY dept ORDER BY SUM(salary) DESC");
+    CHECK(r.ok());
+    CHECK_EQ(r.rows.size(), (size_t)2);
+    CHECK_EQ(r.rows[0][0].getString(), std::string("Eng"));    // 330 first
+    CHECK_EQ(r.rows[1][0].getString(), std::string("Sales"));  // 185 second
+}
+
+TEST(select_expression_over_aggregates) {
+    Connection c;
+    c.query("CREATE TABLE t (v INT)");
+    c.query("INSERT INTO t VALUES (10),(20),(30)");
+    // A computed expression combining two aggregates.
+    CHECK_EQ(scalar(c, "SELECT SUM(v) / COUNT(*) FROM t"), 20.0);
+    CHECK_EQ(scalar(c, "SELECT MAX(v) - MIN(v) FROM t"), 20.0);
+}
+
+TEST(union_all_concatenates) {
+    Connection c;
+    c.query("CREATE TABLE a (x INT)");
+    c.query("INSERT INTO a VALUES (1),(2)");
+    c.query("CREATE TABLE b (x INT)");
+    c.query("INSERT INTO b VALUES (2),(3)");
+    QueryResult r = c.query("SELECT x FROM a UNION ALL SELECT x FROM b");
+    CHECK(r.ok());
+    CHECK_EQ(r.rows.size(), (size_t)4);            // 1,2,2,3 — duplicates kept
+}
+
+TEST(union_deduplicates) {
+    Connection c;
+    c.query("CREATE TABLE a (x INT)");
+    c.query("INSERT INTO a VALUES (1),(2)");
+    c.query("CREATE TABLE b (x INT)");
+    c.query("INSERT INTO b VALUES (2),(3)");
+    QueryResult r = c.query("SELECT x FROM a UNION SELECT x FROM b");
+    CHECK(r.ok());
+    CHECK_EQ(r.rows.size(), (size_t)3);            // 1,2,3 — the shared 2 deduped
+}
+
+TEST(union_column_count_mismatch_errors) {
+    Connection c;
+    c.query("CREATE TABLE a (x INT)");
+    c.query("CREATE TABLE b (x INT, y INT)");
+    QueryResult r = c.query("SELECT x FROM a UNION ALL SELECT x, y FROM b");
+    CHECK(!r.ok());                                 // clean error, not silent misalignment
+}
+
+TEST(insert_select) {
+    Connection c;
+    c.query("CREATE TABLE src (x INT, y VARCHAR)");
+    c.query("INSERT INTO src VALUES (1,'a'),(2,'b'),(3,'c')");
+    c.query("CREATE TABLE dst (x INT, y VARCHAR)");
+    QueryResult ins = c.query("INSERT INTO dst SELECT x, y FROM src WHERE x >= 2");
+    CHECK(ins.ok());
+    CHECK_EQ(ins.rowsAffected, (int64_t)2);
+    QueryResult r = c.query("SELECT x, y FROM dst ORDER BY x");
+    CHECK_EQ(r.rows.size(), (size_t)2);
+    CHECK_EQ(r.rows[0][1].getString(), std::string("b"));
+}
+
+TEST(insert_select_count_mismatch_errors) {
+    Connection c;
+    c.query("CREATE TABLE src (x INT, y INT)");
+    c.query("INSERT INTO src VALUES (1,2)");
+    c.query("CREATE TABLE dst (x INT)");
+    CHECK(!c.query("INSERT INTO dst SELECT x, y FROM src").ok());
+}
+
+// ============================================================================
 // Persistence — save/load round-trips the whole catalog
 // ============================================================================
 

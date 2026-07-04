@@ -282,6 +282,27 @@ private:
 };
 
 // ============================================================================
+// Append — concatenate two inputs (UNION ALL). Streams the left child to
+// exhaustion, then the right. The output schema is the left child's; the right
+// child must produce the same number of columns (values are passed through
+// positionally, per SQL UNION semantics). Wrap in Distinct for plain UNION.
+// ============================================================================
+
+class Append : public Operator {
+public:
+    Append(OperatorPtr left, OperatorPtr right);
+
+    const Schema& schema() const override { return left_->schema(); }
+    Batch next() override;
+    void  reset() override { left_->reset(); right_->reset(); leftDone_ = false; }
+
+private:
+    OperatorPtr left_;
+    OperatorPtr right_;
+    bool        leftDone_ = false;
+};
+
+// ============================================================================
 // Values — a constant single-row (or multi-row) source, and the "dual" table
 // ============================================================================
 

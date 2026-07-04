@@ -447,6 +447,28 @@ Batch HashJoin::next() {
 }
 
 // ============================================================================
+// Append
+// ============================================================================
+
+Append::Append(OperatorPtr left, OperatorPtr right)
+    : left_(std::move(left)), right_(std::move(right)) {}
+
+Batch Append::next() {
+    if (!leftDone_) {
+        Batch b = left_->next();
+        if (!b.empty()) return b;
+        leftDone_ = true;
+    }
+    // Right side: re-tag rows with the left (output) schema positionally.
+    Batch in = right_->next();
+    if (in.empty()) return Batch(left_->schema());
+    Batch out(left_->schema());
+    for (size_t r = 0; r < in.numRows; ++r)
+        out.appendRow(in.getRow(r));
+    return out;
+}
+
+// ============================================================================
 // Values
 // ============================================================================
 

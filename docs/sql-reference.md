@@ -47,10 +47,13 @@ DROP TABLE <name>;
 
 ```sql
 INSERT INTO <name> [(col, ...)] VALUES (v, ...), (v, ...), ...;
+INSERT INTO <name> [(col, ...)] SELECT ...;
 ```
 
-Values are scalar expressions evaluated at insert time (constants and constant
-expressions like `1 + 2`). `INSERT … SELECT` is **not** implemented.
+`VALUES` rows are scalar expressions evaluated at insert time (constants and
+constant expressions like `1 + 2`). `INSERT … SELECT` runs the query and
+appends its rows; the query's column count must match the target (or the
+explicit column list).
 
 ### SELECT
 
@@ -69,11 +72,15 @@ SELECT [DISTINCT] <select_list>
   `<expr> [[AS] alias]`.
 - A missing `FROM` evaluates a single row (`SELECT 1 + 1`).
 - `ORDER BY` may reference columns not in the select list.
-- With `GROUP BY`, `ORDER BY` may reference a **group-key column** or an
-  **aliased aggregate** (`SELECT SUM(x) AS total … ORDER BY total`). Ordering by
-  a *bare* aggregate expression (`ORDER BY SUM(x)` with no alias) is not yet
-  supported — give the aggregate an alias and order by that.
-- `UNION` is modeled by the planner; execution of set operations is partial.
+- With `GROUP BY`, `ORDER BY` may reference a group-key column, a SELECT alias
+  (`SUM(x) AS total … ORDER BY total`), or a bare aggregate expression
+  (`ORDER BY SUM(x)`).
+- The SELECT list may contain **expressions over aggregates**
+  (`SELECT SUM(x) / COUNT(*)`, `MAX(v) - MIN(v)`).
+- `UNION` concatenates and deduplicates; `UNION ALL` keeps duplicates. Both
+  sides must have the same column count (checked). Note: an `ORDER BY`/`LIMIT`
+  written after the second SELECT binds to that SELECT, not the union.
+  `INTERSECT`/`EXCEPT` are not implemented.
 
 ## Table references & joins
 
@@ -165,8 +172,9 @@ Usable with or without `GROUP BY`:
 | `MIN(expr)` / `MAX(expr)` | extrema (typed) |
 
 Aggregates ignore `NULL` inputs. An aggregate query with no rows still returns
-one row (`COUNT` → 0, others → NULL). `HAVING` is parsed and applied as a filter
-over aggregate output; complex `HAVING` expressions are partially supported.
+one row (`COUNT` → 0, others → NULL). `HAVING` filters aggregate output and may
+use aggregate expressions freely — including aggregates that are not in the
+SELECT list (`SELECT dept FROM emp GROUP BY dept HAVING COUNT(*) > 2`).
 
 ## Data types
 
