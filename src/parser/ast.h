@@ -67,6 +67,8 @@ struct SubqueryRef;
 // Statements
 struct SelectStmt;
 struct InsertStmt;
+struct UpdateStmt;
+struct DeleteStmt;
 struct CreateTableStmt;
 struct DropTableStmt;
 
@@ -128,6 +130,8 @@ TableRefPtr makeTableRef(Args&&... args) {
 using StmtNode = std::variant<
     SelectStmt,
     InsertStmt,
+    UpdateStmt,
+    DeleteStmt,
     CreateTableStmt,
     DropTableStmt
 >;
@@ -507,6 +511,32 @@ struct InsertStmt {
 };
 
 // ----------------------------------------------------------------------------
+// UpdateStmt — UPDATE table SET col = expr [, ...] [WHERE predicate]
+// ----------------------------------------------------------------------------
+struct UpdateAssignment {
+    std::string column;
+    Expr        value;      // expression evaluated per matching row
+};
+
+struct UpdateStmt {
+    std::string                   table;
+    std::optional<std::string>    schema;
+    std::vector<UpdateAssignment> assignments;
+    std::optional<Expr>           where;   // absent = update all rows
+    SourceLocation                location;
+};
+
+// ----------------------------------------------------------------------------
+// DeleteStmt — DELETE FROM table [WHERE predicate]
+// ----------------------------------------------------------------------------
+struct DeleteStmt {
+    std::string                table;
+    std::optional<std::string> schema;
+    std::optional<Expr>        where;   // absent = delete all rows
+    SourceLocation             location;
+};
+
+// ----------------------------------------------------------------------------
 // ColumnConstraint — constraints on a column in CREATE TABLE
 // ----------------------------------------------------------------------------
 struct ColumnConstraint {
@@ -612,6 +642,8 @@ struct ASTVisitor {
     // Statement nodes
     Ret visit(const SelectStmt&      n) { return static_cast<Derived*>(this)->visitDefault(n); }
     Ret visit(const InsertStmt&      n) { return static_cast<Derived*>(this)->visitDefault(n); }
+    Ret visit(const UpdateStmt&      n) { return static_cast<Derived*>(this)->visitDefault(n); }
+    Ret visit(const DeleteStmt&      n) { return static_cast<Derived*>(this)->visitDefault(n); }
     Ret visit(const CreateTableStmt& n) { return static_cast<Derived*>(this)->visitDefault(n); }
     Ret visit(const DropTableStmt&   n) { return static_cast<Derived*>(this)->visitDefault(n); }
 

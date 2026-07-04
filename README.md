@@ -128,9 +128,9 @@ suite that runs green under a Release build.
 **Known limitations** (candidly): the typed columnar fast path covers the common
 aggregate shape (`SELECT [key,] AGG(col)… FROM t [WHERE simple] [GROUP BY key]`);
 other queries still use the correct-but-boxed general executor. Subqueries in
-`WHERE` (scalar / `IN (SELECT …)`) are not executed; `INTERSECT`/`EXCEPT` and
-`UPDATE`/`DELETE` are not implemented; the optimizer runs on a logical plan that
-is separate from the executor's AST-driven path. See
+`WHERE` (scalar / `IN (SELECT …)`) are not executed and `INTERSECT`/`EXCEPT` are
+not implemented; the optimizer runs on a logical plan that is separate from the
+executor's AST-driven path. See
 [docs/architecture.md](docs/architecture.md) and the [Roadmap](#roadmap).
 
 > Note on provenance: this repository was reconstructed from a partial snapshot.

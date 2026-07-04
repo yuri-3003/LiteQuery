@@ -55,6 +55,25 @@ constant expressions like `1 + 2`). `INSERT … SELECT` runs the query and
 appends its rows; the query's column count must match the target (or the
 explicit column list).
 
+### UPDATE
+
+```sql
+UPDATE <name> SET col = expr [, col = expr ...] [WHERE predicate];
+```
+
+Each `SET` expression is evaluated per matching row against the row's **current
+(pre-update)** values, so `SET x = x + 1` and `SET a = b, b = a` behave as SQL
+expects. Without a `WHERE`, every row is updated.
+
+### DELETE
+
+```sql
+DELETE FROM <name> [WHERE predicate];
+```
+
+Removes matching rows; without a `WHERE`, all rows are removed (the table and
+its schema remain). Both statements report the number of affected rows.
+
 ### SELECT
 
 ```sql

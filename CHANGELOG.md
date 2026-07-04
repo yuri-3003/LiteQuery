@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **`UPDATE` and `DELETE`**: `UPDATE t SET col = expr [, …] [WHERE p]` (SET
+  expressions see the pre-update row values) and `DELETE FROM t [WHERE p]`; both
+  report rows affected. New `UpdateStmt`/`DeleteStmt` AST nodes + parser.
 - **SQL completeness batch**:
   - `HAVING` with aggregate expressions (`HAVING SUM(x) > 10`), including
     aggregates not present in the SELECT list.

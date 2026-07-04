@@ -549,6 +549,75 @@ static QueryResult runDrop(const DropTableStmt& dt, Catalog& cat) {
 
 static QueryResult runSelect(const SelectStmt& stmt, Catalog& cat);
 
+// Rebuild a table by re-inserting a set of rows (used by UPDATE/DELETE, which
+// produce a new column layout rather than mutating typed buffers in place).
+static TablePtr rebuiltTable(const std::string& name, const Schema& schema,
+                             const std::vector<Row>& rows) {
+    auto t = std::make_shared<Table>(name, schema);
+    for (const auto& r : rows) t->insertRow(r);
+    return t;
+}
+
+static QueryResult runUpdate(const UpdateStmt& upd, Catalog& cat) {
+    TablePtr tbl = cat.getTable(upd.table);
+    const Schema& schema = tbl->schema();
+
+    // Resolve SET target column indices up front.
+    std::vector<int> setCols;
+    for (const auto& a : upd.assignments) {
+        int idx = schema.indexOf(a.column);
+        if (idx < 0) return QueryResult::makeError("Unknown column in UPDATE SET: " + a.column);
+        setCols.push_back(idx);
+    }
+
+    std::vector<Row> rows;
+    rows.reserve(tbl->rowCount());
+    int64_t affected = 0;
+
+    for (size_t r = 0; r < tbl->rowCount(); ++r) {
+        Row row = tbl->getRow(r);
+        bool match = !upd.where ||
+                     evaluatePredicate(**upd.where, schema, row);
+        if (match) {
+            // Evaluate each SET expression against the *pre-update* row (standard
+            // SQL: assignments see the old values).
+            Row updated = row;
+            for (size_t i = 0; i < upd.assignments.size(); ++i)
+                updated[setCols[i]] = evaluate(*upd.assignments[i].value, schema, row);
+            rows.push_back(std::move(updated));
+            ++affected;
+        } else {
+            rows.push_back(std::move(row));
+        }
+    }
+
+    cat.registerTable(rebuiltTable(upd.table, schema, rows));
+    QueryResult res;
+    res.rowsAffected = affected;
+    return res;
+}
+
+static QueryResult runDelete(const DeleteStmt& del, Catalog& cat) {
+    TablePtr tbl = cat.getTable(del.table);
+    const Schema& schema = tbl->schema();
+
+    std::vector<Row> kept;
+    int64_t deleted = 0;
+    for (size_t r = 0; r < tbl->rowCount(); ++r) {
+        Row row = tbl->getRow(r);
+        bool remove = del.where
+                          ? evaluatePredicate(**del.where, schema, row)
+                          : true;   // DELETE with no WHERE removes all rows
+        if (remove) ++deleted;
+        else        kept.push_back(std::move(row));
+    }
+
+    cat.registerTable(rebuiltTable(del.table, schema, kept));
+    QueryResult res;
+    res.rowsAffected = deleted;
+    return res;
+}
+
 static QueryResult runInsert(const InsertStmt& ins, Catalog& cat) {
     TablePtr tbl = cat.getTable(ins.table);
     const Schema& schema = tbl->schema();
@@ -664,6 +733,8 @@ QueryResult Connection::query(const std::string& sql) {
             else if constexpr (std::is_same_v<T, CreateTableStmt>) return runCreate(s, *catalog_);
             else if constexpr (std::is_same_v<T, DropTableStmt>)   return runDrop(s, *catalog_);
             else if constexpr (std::is_same_v<T, InsertStmt>)      return runInsert(s, *catalog_);
+            else if constexpr (std::is_same_v<T, UpdateStmt>)      return runUpdate(s, *catalog_);
+            else if constexpr (std::is_same_v<T, DeleteStmt>)      return runDelete(s, *catalog_);
             else return QueryResult::makeError("unsupported statement");
         }, *stmt);
     }

@@ -121,8 +121,9 @@ incremental/append-safe writes are a later refinement.
 - [x] `ORDER BY` bare aggregates + expressions over aggregates in SELECT
 - [x] `UNION` / `UNION ALL` execution (fixed: UNION was silently dropped)
 - [x] `INSERT … SELECT`
+- [x] `UPDATE` (SET sees pre-update values) and `DELETE` (with/without WHERE)
 - [ ] Subqueries in `WHERE` (scalar, `IN (subquery)`); `FROM` subqueries work
-- [ ] `UPDATE`; `DELETE`; `INTERSECT`/`EXCEPT`
+- [ ] `INTERSECT`/`EXCEPT`
 - [ ] More scalar/date functions; `CAST` `::` shorthand
 - [ ] Unify optimizer's logical plan with the execution path
 

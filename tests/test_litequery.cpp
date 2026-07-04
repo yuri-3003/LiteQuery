@@ -423,6 +423,98 @@ TEST(insert_select_count_mismatch_errors) {
     CHECK(!c.query("INSERT INTO dst SELECT x, y FROM src").ok());
 }
 
+// ---- UPDATE / DELETE -------------------------------------------------------
+
+TEST(update_with_where) {
+    Connection c;
+    c.query("CREATE TABLE t (id INT, sal DOUBLE)");
+    c.query("INSERT INTO t VALUES (1,100),(2,200),(3,300)");
+    QueryResult u = c.query("UPDATE t SET sal = 999 WHERE id = 2");
+    CHECK(u.ok());
+    CHECK_EQ(u.rowsAffected, (int64_t)1);
+    QueryResult r = c.query("SELECT sal FROM t ORDER BY id");
+    CHECK_EQ(r.rows[0][0].toDouble(), 100.0);
+    CHECK_EQ(r.rows[1][0].toDouble(), 999.0);
+    CHECK_EQ(r.rows[2][0].toDouble(), 300.0);
+}
+
+TEST(update_computed_sees_old_values) {
+    // SET expressions reference the pre-update row (standard SQL).
+    Connection c;
+    c.query("CREATE TABLE t (x INT, y INT)");
+    c.query("INSERT INTO t VALUES (1,10),(2,20)");
+    QueryResult u = c.query("UPDATE t SET x = x + 100, y = y * 2");
+    CHECK(u.ok());
+    CHECK_EQ(u.rowsAffected, (int64_t)2);       // no WHERE → all rows
+    QueryResult r = c.query("SELECT x, y FROM t ORDER BY x");
+    CHECK_EQ(r.rows[0][0].toInt64(), (int64_t)101);
+    CHECK_EQ(r.rows[0][1].toInt64(), (int64_t)20);
+    CHECK_EQ(r.rows[1][0].toInt64(), (int64_t)102);
+    CHECK_EQ(r.rows[1][1].toInt64(), (int64_t)40);
+}
+
+TEST(update_to_null) {
+    Connection c;
+    c.query("CREATE TABLE t (x INT, y VARCHAR)");
+    c.query("INSERT INTO t VALUES (1,'a'),(2,'b')");
+    c.query("UPDATE t SET y = NULL WHERE x = 1");
+    QueryResult r = c.query("SELECT y FROM t ORDER BY x");
+    CHECK(r.rows[0][0].isNull());
+    CHECK_EQ(r.rows[1][0].getString(), std::string("b"));
+}
+
+TEST(update_unknown_column_errors) {
+    Connection c;
+    c.query("CREATE TABLE t (x INT)");
+    c.query("INSERT INTO t VALUES (1)");
+    CHECK(!c.query("UPDATE t SET nope = 5").ok());
+}
+
+TEST(delete_with_where) {
+    Connection c;
+    c.query("CREATE TABLE t (x INT)");
+    c.query("INSERT INTO t VALUES (1),(2),(3),(4)");
+    QueryResult d = c.query("DELETE FROM t WHERE x > 2");
+    CHECK(d.ok());
+    CHECK_EQ(d.rowsAffected, (int64_t)2);
+    QueryResult r = c.query("SELECT COUNT(*) FROM t");
+    CHECK_EQ(r.rows[0][0].toInt64(), (int64_t)2);
+}
+
+TEST(delete_all) {
+    Connection c;
+    c.query("CREATE TABLE t (x INT)");
+    c.query("INSERT INTO t VALUES (1),(2),(3)");
+    QueryResult d = c.query("DELETE FROM t");
+    CHECK_EQ(d.rowsAffected, (int64_t)3);
+    CHECK_EQ(scalar(c, "SELECT COUNT(*) FROM t"), 0.0);
+    // Schema is intact — can still insert afterwards.
+    c.query("INSERT INTO t VALUES (9)");
+    CHECK_EQ(scalar(c, "SELECT COUNT(*) FROM t"), 1.0);
+}
+
+TEST(update_then_persist) {
+    // UPDATE/DELETE produce a rebuilt table; verify it still saves/loads.
+    std::string path = "._lq_test_upd_persist.lqdb";
+    {
+        Connection c;
+        c.query("CREATE TABLE t (id INT, v DOUBLE)");
+        c.query("INSERT INTO t VALUES (1,10),(2,20),(3,30)");
+        c.query("UPDATE t SET v = 0 WHERE id = 2");
+        c.query("DELETE FROM t WHERE id = 3");
+        CHECK(c.saveDatabase(path).ok());
+    }
+    {
+        Connection c;
+        CHECK(c.loadDatabase(path).ok());
+        QueryResult r = c.query("SELECT id, v FROM t ORDER BY id");
+        CHECK_EQ(r.rows.size(), (size_t)2);
+        CHECK_EQ(r.rows[0][1].toDouble(), 10.0);
+        CHECK_EQ(r.rows[1][1].toDouble(), 0.0);
+    }
+    std::remove(path.c_str());
+}
+
 // ============================================================================
 // Persistence — save/load round-trips the whole catalog
 // ============================================================================

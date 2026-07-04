@@ -69,10 +69,12 @@ ast::Stmt Parser::parseStatement() {
             *std::get_if<SelectStmt>(stmt.get()) = std::move(*parseSelect());
             break;
         case TokenKind::KW_INSERT: stmt = parseInsert();      break;
+        case TokenKind::KW_UPDATE: stmt = parseUpdate();      break;
+        case TokenKind::KW_DELETE: stmt = parseDelete();      break;
         case TokenKind::KW_CREATE: stmt = parseCreateTable(); break;
         case TokenKind::KW_DROP:   stmt = parseDropTable();   break;
         default:
-            error("expected a statement (SELECT/INSERT/CREATE/DROP)");
+            error("expected a statement (SELECT/INSERT/UPDATE/DELETE/CREATE/DROP)");
     }
     match(TokenKind::SEMICOLON);              // optional trailing ';'
     if (!isAtEnd())
@@ -710,6 +712,66 @@ ast::Stmt Parser::parseInsert() {
     }
 
     return makeStmt<InsertStmt>(std::move(ins));
+}
+
+// ============================================================================
+// UPDATE — UPDATE table SET col = expr [, ...] [WHERE predicate]
+// ============================================================================
+
+ast::Stmt Parser::parseUpdate() {
+    SourceLocation loc = current().location;
+    expect(TokenKind::KW_UPDATE, "UPDATE");
+
+    UpdateStmt upd;
+    upd.location = loc;
+
+    std::string first = std::string(expect(TokenKind::IDENT, "table name").lexeme);
+    if (match(TokenKind::DOT)) {
+        upd.schema = first;
+        upd.table  = std::string(expect(TokenKind::IDENT, "table name after '.'").lexeme);
+    } else {
+        upd.table = first;
+    }
+
+    expect(TokenKind::KW_SET, "SET after table name");
+    do {
+        UpdateAssignment a;
+        a.column = std::string(expect(TokenKind::IDENT, "column name in SET").lexeme);
+        expect(TokenKind::OP_EQ, "= in SET assignment");
+        a.value = parseExpression();
+        upd.assignments.push_back(std::move(a));
+    } while (match(TokenKind::COMMA));
+
+    if (match(TokenKind::KW_WHERE))
+        upd.where = parseExpression();
+
+    return makeStmt<UpdateStmt>(std::move(upd));
+}
+
+// ============================================================================
+// DELETE — DELETE FROM table [WHERE predicate]
+// ============================================================================
+
+ast::Stmt Parser::parseDelete() {
+    SourceLocation loc = current().location;
+    expect(TokenKind::KW_DELETE, "DELETE");
+    expect(TokenKind::KW_FROM, "FROM after DELETE");
+
+    DeleteStmt del;
+    del.location = loc;
+
+    std::string first = std::string(expect(TokenKind::IDENT, "table name").lexeme);
+    if (match(TokenKind::DOT)) {
+        del.schema = first;
+        del.table  = std::string(expect(TokenKind::IDENT, "table name after '.'").lexeme);
+    } else {
+        del.table = first;
+    }
+
+    if (match(TokenKind::KW_WHERE))
+        del.where = parseExpression();
+
+    return makeStmt<DeleteStmt>(std::move(del));
 }
 
 // ============================================================================

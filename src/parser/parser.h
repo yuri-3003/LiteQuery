@@ -81,6 +81,8 @@ private:
 
     // ---- Statements --------------------------------------------------------
     ast::Stmt parseInsert();
+    ast::Stmt parseUpdate();
+    ast::Stmt parseDelete();
     ast::Stmt parseCreateTable();
     ast::Stmt parseDropTable();
 
