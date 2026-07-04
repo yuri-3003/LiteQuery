@@ -80,6 +80,10 @@ lq_status lq_exec(lq_db* db, const char* sql,
 lq_status lq_import_csv(lq_db* db, const char* path, const char* table_name,
                         char delimiter, int has_header,
                         int64_t* rows, const char** out_error);
+
+/* Save the whole database to a single file, and load it back. */
+lq_status lq_save(lq_db* db, const char* path, const char** out_error);
+lq_status lq_load(lq_db* db, const char* path, const char** out_error);
 ```
 
 ### Result metadata

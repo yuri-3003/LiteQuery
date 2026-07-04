@@ -87,6 +87,17 @@ OK  (10432 rows into sales)
 lq> SELECT region, SUM(amount) AS total FROM sales GROUP BY region ORDER BY total DESC LIMIT 5;
 ```
 
+Save your work and pick it up later — the whole database round-trips to a single
+file:
+
+```
+lq> .save mydata.lqdb        # ... and in a later session:
+lq> .open mydata.lqdb
+```
+
+The on-disk format serializes the typed columns directly (data + a validity
+bitmap), so all types and NULLs are preserved exactly.
+
 ---
 
 ## Status
@@ -108,6 +119,7 @@ suite that runs green under a Release build.
 | `JOIN` — `INNER`, `LEFT`, `RIGHT`, `FULL`, `CROSS`, with `ON` predicates | ✅ |
 | `DISTINCT`, `ORDER BY` (incl. by dropped columns), `LIMIT` / `OFFSET` | ✅ |
 | CSV/TSV ingestion with automatic type inference (`.import` / `importCsv`) | ✅ |
+| Persistence — save/load a database to a single file (`.save` / `.open`) | ✅ |
 | Rule-based optimizer (constant folding, predicate pushdown, column pruning, …) | ✅ |
 | `EXPLAIN` (logical plan printer) | ✅ |
 | Interactive `lq` shell (REPL, table/csv/json output, `.import`) | ✅ |

@@ -56,6 +56,18 @@ public:
 
     void clear() noexcept { bits_.clear(); count_ = 0; anyNull_ = false; }
 
+    // ---- Raw access (used by persistence to save/restore exactly) ----------
+    const std::vector<uint64_t>& words() const noexcept { return bits_; }
+
+    // Rebuild a bitmap from raw words + a row count (inverse of words()/size()).
+    void assignRaw(std::vector<uint64_t> words, size_t count) {
+        bits_ = std::move(words);
+        count_ = count;
+        anyNull_ = false;
+        for (size_t i = 0; i < count_; ++i)
+            if (!isValid(i)) { anyNull_ = true; break; }
+    }
+
 private:
     std::vector<uint64_t> bits_;
     size_t                count_   = 0;
@@ -140,6 +152,22 @@ public:
     const std::vector<std::string>& str() const noexcept { return str_; }
     const ValidityBitmap&           validity() const noexcept { return validity_; }
     bool isValid(size_t i) const noexcept { return validity_.isValid(i); }
+
+    // ---- Bulk restore (used by persistence to reconstruct a saved column) --
+    // Moves the typed buffer and validity words directly into place. Exactly one
+    // of the three buffers is meaningful, per kind(); the others stay empty.
+    void restoreInt64(std::vector<int64_t> data, std::vector<uint64_t> valid, size_t rows) {
+        i64_ = std::move(data);
+        validity_.assignRaw(std::move(valid), rows);
+    }
+    void restoreDouble(std::vector<double> data, std::vector<uint64_t> valid, size_t rows) {
+        f64_ = std::move(data);
+        validity_.assignRaw(std::move(valid), rows);
+    }
+    void restoreString(std::vector<std::string> data, std::vector<uint64_t> valid, size_t rows) {
+        str_ = std::move(data);
+        validity_.assignRaw(std::move(valid), rows);
+    }
 
     static Kind kindOf(TypeId id) {
         if (id == TypeId::FLOAT32 || id == TypeId::FLOAT64) return Kind::Double;

@@ -54,6 +54,8 @@ the crate.
 | `execute(sql) -> Result<i64>` | run `CREATE`/`INSERT`/`DROP`; returns rows affected |
 | `import_csv(path, table) -> Result<i64>` | load a CSV into a new table |
 | `import_csv_opts(path, table, delimiter, has_header)` | CSV/TSV with options |
+| `save(path) -> Result<()>` | save the whole database to a file |
+| `load(path) -> Result<()>` | load a database from a file |
 
 The connection closes automatically when dropped.
 

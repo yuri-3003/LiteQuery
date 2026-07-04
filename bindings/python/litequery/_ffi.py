@@ -90,6 +90,12 @@ lib.lq_import_csv.argtypes = [
     POINTER(c_int64), POINTER(c_char_p),
 ]
 
+lib.lq_save.restype = c_int
+lib.lq_save.argtypes = [lq_db_p, c_char_p, POINTER(c_char_p)]
+
+lib.lq_load.restype = c_int
+lib.lq_load.argtypes = [lq_db_p, c_char_p, POINTER(c_char_p)]
+
 lib.lq_result_ok.restype = c_int
 lib.lq_result_ok.argtypes = [lq_result_p]
 

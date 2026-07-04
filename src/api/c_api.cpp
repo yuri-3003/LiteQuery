@@ -143,6 +143,30 @@ extern "C" lq_status lq_import_csv(lq_db* db, const char* path, const char* tabl
     });
 }
 
+extern "C" lq_status lq_save(lq_db* db, const char* path, const char** out_error) {
+    if (!db || !path) return LQ_MISUSE;
+    LQ_GUARD_STATUS({
+        lq::QueryResult r = db->conn.saveDatabase(path);
+        if (!r.ok()) {
+            if (out_error) { thread_local std::string e; e = r.errorMessage; *out_error = e.c_str(); }
+            return LQ_ERROR;
+        }
+        return LQ_OK;
+    });
+}
+
+extern "C" lq_status lq_load(lq_db* db, const char* path, const char** out_error) {
+    if (!db || !path) return LQ_MISUSE;
+    LQ_GUARD_STATUS({
+        lq::QueryResult r = db->conn.loadDatabase(path);
+        if (!r.ok()) {
+            if (out_error) { thread_local std::string e; e = r.errorMessage; *out_error = e.c_str(); }
+            return LQ_ERROR;
+        }
+        return LQ_OK;
+    });
+}
+
 // ============================================================================
 // Result inspection
 // ============================================================================

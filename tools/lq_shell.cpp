@@ -230,10 +230,25 @@ struct Shell {
                 ".schema [table]       show CREATE-like column list\n"
                 ".import FILE TABLE     load a CSV file into a new table\n"
                 ".import -t FILE TABLE  same, but tab-separated (TSV)\n"
+                ".save FILE            save the database to a file\n"
+                ".open FILE            load a database from a file\n"
                 ".mode MODE            output mode: table | csv | json | list\n"
                 ".timing on|off        toggle the timing footer\n"
                 ".read FILE            execute SQL from a file\n"
                 ".quit                 exit\n";
+            return true;
+        }
+        if (cmd == ".save" || cmd == ".open") {
+            std::string file; is >> file;
+            if (file.empty()) { std::cerr << "usage: " << cmd << " FILE\n"; return true; }
+            QueryResult r = (cmd == ".save") ? conn.saveDatabase(file)
+                                             : conn.loadDatabase(file);
+            if (r.error)
+                std::cerr << style.red() << "Error: " << style.reset() << r.errorMessage << "\n";
+            else
+                std::cout << style.green() << "OK" << style.reset()
+                          << style.dim() << "  (" << r.rowsAffected << " tables)"
+                          << style.reset() << "\n";
             return true;
         }
         if (cmd == ".import") {

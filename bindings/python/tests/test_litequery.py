@@ -96,5 +96,28 @@ class TestCsvImport(unittest.TestCase):
                 db.import_csv("/no/such/file.csv", "t")
 
 
+class TestPersistence(unittest.TestCase):
+    def test_save_and_load(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "db.lqdb")
+            with litequery.connect() as db:
+                db.execute("CREATE TABLE t (id INT, name TEXT, v DOUBLE)")
+                db.execute("INSERT INTO t VALUES (1,'a',1.5),(2,'b',NULL),(3,'c',3.5)")
+                db.save(path)
+            # fresh connection
+            with litequery.connect() as db:
+                db.load(path)
+                r = db.query("SELECT id, name, v FROM t ORDER BY id")
+                self.assertEqual(len(r), 3)
+                self.assertEqual(r[0]["name"], "a")
+                self.assertIsNone(r[1]["v"])  # NULL preserved
+                self.assertEqual(db.query("SELECT SUM(v) FROM t").scalar(), 5.0)
+
+    def test_load_bad_file_raises(self):
+        with litequery.connect() as db:
+            with self.assertRaises(litequery.LiteQueryError):
+                db.load("/no/such/db.lqdb")
+
+
 if __name__ == "__main__":
     unittest.main()

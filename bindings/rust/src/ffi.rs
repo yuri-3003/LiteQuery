@@ -38,6 +38,9 @@ extern "C" {
         out_error: *mut *const c_char,
     ) -> c_int;
 
+    pub fn lq_save(db: *mut LqDb, path: *const c_char, out_error: *mut *const c_char) -> c_int;
+    pub fn lq_load(db: *mut LqDb, path: *const c_char, out_error: *mut *const c_char) -> c_int;
+
     pub fn lq_result_ok(res: *const LqResult) -> c_int;
     pub fn lq_result_error(res: *const LqResult) -> *const c_char;
     pub fn lq_result_column_count(res: *const LqResult) -> usize;

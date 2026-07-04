@@ -214,6 +214,23 @@ class Connection:
             raise LiteQueryError(msg)
         return rows.value
 
+    def save(self, path: str) -> None:
+        """Save the whole database (all tables + data) to a file."""
+        self._call_pathfn(lib.lq_save, path, "save failed")
+
+    def load(self, path: str) -> None:
+        """Load a database from a file (tables are added, replacing same names)."""
+        self._call_pathfn(lib.lq_load, path, "load failed")
+
+    def _call_pathfn(self, fn, path: str, default_err: str) -> None:
+        if not self._db:
+            raise LiteQueryError("connection is closed")
+        err = ctypes.c_char_p()
+        status = fn(self._db, path.encode("utf-8"), ctypes.byref(err))
+        if status != 0:
+            msg = err.value.decode("utf-8") if err.value else default_err
+            raise LiteQueryError(msg)
+
 
 def connect() -> Connection:
     """Open a new in-memory LiteQuery database."""

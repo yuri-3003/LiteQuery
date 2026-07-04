@@ -328,6 +328,109 @@ TEST(drop_table) {
 }
 
 // ============================================================================
+// Persistence — save/load round-trips the whole catalog
+// ============================================================================
+
+TEST(persist_round_trip_all_types) {
+    std::string path = "._lq_test_persist.lqdb";
+    {
+        Connection c;
+        c.query("CREATE TABLE t (id INT, name VARCHAR, amt DOUBLE, ok BOOLEAN)");
+        c.query("INSERT INTO t VALUES (1,'Ann',10.5,TRUE),(2,'Bob',20.0,FALSE),(3,'Cy',5.0,TRUE)");
+        QueryResult s = c.saveDatabase(path);
+        CHECK(s.ok());
+    }
+    {
+        Connection c;   // fresh connection — nothing in memory
+        QueryResult l = c.loadDatabase(path);
+        CHECK(l.ok());
+        QueryResult r = c.query("SELECT id, name, amt, ok FROM t ORDER BY id");
+        CHECK(r.ok());
+        CHECK_EQ(r.rows.size(), (size_t)3);
+        CHECK_EQ(r.rows[0][1].getString(), std::string("Ann"));
+        CHECK_EQ(r.rows[0][2].toDouble(), 10.5);
+        CHECK_EQ(r.rows[1][1].getString(), std::string("Bob"));
+        // Aggregate on reloaded data.
+        CHECK_EQ(scalar(c, "SELECT SUM(amt) FROM t"), 35.5);
+    }
+    std::remove(path.c_str());
+}
+
+TEST(persist_preserves_nulls) {
+    std::string path = "._lq_test_nulls.lqdb";
+    {
+        Connection c;
+        c.query("CREATE TABLE t (id INT, v DOUBLE, s VARCHAR)");
+        c.query("INSERT INTO t VALUES (1,10.0,'a'),(2,NULL,NULL),(3,30.0,'c')");
+        CHECK(c.saveDatabase(path).ok());
+    }
+    {
+        Connection c;
+        CHECK(c.loadDatabase(path).ok());
+        QueryResult r = c.query("SELECT id, v, s FROM t ORDER BY id");
+        CHECK(r.rows[1][1].isNull());    // v NULL preserved
+        CHECK(r.rows[1][2].isNull());    // s NULL preserved
+        CHECK(!r.rows[0][1].isNull());
+        // AVG skips the NULL: (10+30)/2 = 20
+        CHECK_EQ(scalar(c, "SELECT AVG(v) FROM t"), 20.0);
+    }
+    std::remove(path.c_str());
+}
+
+TEST(persist_multiple_tables) {
+    std::string path = "._lq_test_multi.lqdb";
+    {
+        Connection c;
+        c.query("CREATE TABLE a (x INT)");
+        c.query("INSERT INTO a VALUES (1),(2),(3)");
+        c.query("CREATE TABLE b (y VARCHAR)");
+        c.query("INSERT INTO b VALUES ('p'),('q')");
+        QueryResult s = c.saveDatabase(path);
+        CHECK(s.ok());
+        CHECK_EQ(s.rowsAffected, (int64_t)2);   // 2 tables saved
+    }
+    {
+        Connection c;
+        c.loadDatabase(path);
+        CHECK_EQ(scalar(c, "SELECT COUNT(*) FROM a"), 3.0);
+        CHECK_EQ(scalar(c, "SELECT COUNT(*) FROM b"), 2.0);
+    }
+    std::remove(path.c_str());
+}
+
+TEST(persist_empty_table) {
+    std::string path = "._lq_test_empty.lqdb";
+    {
+        Connection c;
+        c.query("CREATE TABLE t (x INT, y VARCHAR)");   // no rows
+        CHECK(c.saveDatabase(path).ok());
+    }
+    {
+        Connection c;
+        CHECK(c.loadDatabase(path).ok());
+        QueryResult r = c.query("SELECT * FROM t");
+        CHECK(r.ok());
+        CHECK_EQ(r.rows.size(), (size_t)0);
+        CHECK_EQ(r.schema.size(), (size_t)2);   // schema preserved
+    }
+    std::remove(path.c_str());
+}
+
+TEST(persist_bad_file_is_error) {
+    // A non-database file must fail cleanly, not crash.
+    std::string path = "._lq_test_garbage.lqdb";
+    { std::ofstream f(path); f << "this is not a LiteQuery database file"; }
+    Connection c;
+    QueryResult r = c.loadDatabase(path);
+    CHECK(!r.ok());
+    CHECK(!r.errorMessage.empty());
+    std::remove(path.c_str());
+
+    // A missing file is also a clean error.
+    CHECK(!c.loadDatabase("._no_such_db_file.lqdb").ok());
+}
+
+// ============================================================================
 // Typed fast-aggregate path — must match the general path exactly
 // ============================================================================
 

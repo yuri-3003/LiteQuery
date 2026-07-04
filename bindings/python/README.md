@@ -52,6 +52,8 @@ litequery.connect() as db:`) or call `db.close()` yourself.
 | `query(sql) -> Result` | Run a SELECT; returns a `Result`. Raises `LiteQueryError` on failure. |
 | `execute(sql) -> int` | Run CREATE/INSERT/DROP; returns rows affected. |
 | `import_csv(path, table, delimiter=",", has_header=True) -> int` | Load a CSV/TSV into a new table; returns rows loaded. |
+| `save(path)` | Save the whole database to a file. |
+| `load(path)` | Load a database from a file. |
 | `close()` | Close the connection. |
 
 ### `Result`

@@ -46,6 +46,8 @@ changes to ` ..>` while a statement is still open.
 | `.schema [table]` | show a CREATE-like column list (all tables, or one) |
 | `.import FILE TABLE` | load a CSV file into a new table (types inferred) |
 | `.import -t FILE TABLE` | same, but tab-separated (TSV) |
+| `.save FILE` | save the whole database to a file |
+| `.open FILE` | load a database from a file |
 | `.mode MODE` | output format: `table` (default) · `csv` · `json` · `list` |
 | `.timing on\|off` | toggle the `N rows · T µs` footer |
 | `.read FILE` | execute SQL from a file |

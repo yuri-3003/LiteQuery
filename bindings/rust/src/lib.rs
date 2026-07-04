@@ -192,6 +192,32 @@ impl Connection {
         }
         Ok(rows)
     }
+
+    /// Save the whole database (all tables + data) to a single file.
+    pub fn save(&self, path: &str) -> Result<()> {
+        self.path_fn(path, ffi::lq_save, "save failed")
+    }
+
+    /// Load a database from a file (tables are added, replacing same names).
+    pub fn load(&self, path: &str) -> Result<()> {
+        self.path_fn(path, ffi::lq_load, "load failed")
+    }
+
+    fn path_fn(
+        &self,
+        path: &str,
+        f: unsafe extern "C" fn(*mut ffi::LqDb, *const c_char, *mut *const c_char) -> std::os::raw::c_int,
+        default_err: &str,
+    ) -> Result<()> {
+        let c_path = CString::new(path).map_err(|_| Error("path contains a NUL byte".into()))?;
+        let mut err: *const c_char = ptr::null();
+        let status = unsafe { f(self.db, c_path.as_ptr(), &mut err) };
+        if status != ffi::LQ_OK {
+            let msg = unsafe { cstr_to_string(err) }.unwrap_or_else(|| default_err.into());
+            return Err(Error(msg));
+        }
+        Ok(())
+    }
 }
 
 impl Drop for Connection {

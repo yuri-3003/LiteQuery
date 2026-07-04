@@ -98,16 +98,18 @@ answer), reported honestly. Vendored SQLite 3.46.1, opt-in build.
 
 ---
 
-## Phase 5 — Persistence  ⬜
+## Phase 5 — Persistence  ✅ (core)
 *Goal: databases survive process exit — usable for real, not just in-memory.*
 *Effort: L. Depends on: Phase 3 (persist the typed format).*
 
-- [ ] Save/load a database to a single file (columnar on-disk format)
-- [ ] `lq_open("mydb.lq")` opens/creates a file-backed database
-- [ ] Append-safe writes; basic durability guarantees documented
-- [ ] Format versioning so future changes stay backward-compatible
+- [x] Save/load a database to a single file (columnar on-disk format)
+- [x] Format versioning (refuses to load a newer format)
+- [x] Exposed everywhere: C++/C API, shell `.save`/`.open`, Python, Rust
+- [ ] File-backed `open("mydb.lq")` with incremental/append-safe writes (future)
 
-**Unlocks:** real-world adoption; LiteQuery becomes a place to *keep* data.
+**Delivered:** the whole catalog round-trips to one file with all types and NULLs
+preserved (typed columns serialized directly). Snapshot semantics for now;
+incremental/append-safe writes are a later refinement.
 
 ---
 

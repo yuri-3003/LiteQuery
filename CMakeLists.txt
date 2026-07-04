@@ -55,6 +55,7 @@ set(LITEQUERY_SOURCES
   src/execution/physical_plan.cpp
   src/execution/fast_aggregate.cpp
   src/storage/csv_reader.cpp
+  src/storage/persistence.cpp
   src/api/connection.cpp
   src/api/c_api.cpp
 )

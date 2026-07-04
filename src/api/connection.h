@@ -94,6 +94,13 @@ public:
                           char delimiter = ',',
                           bool hasHeader = true);
 
+    // Save the whole database (all tables + data) to a single file, and load it
+    // back. Snapshot semantics: save() writes the current catalog; load() adds
+    // the file's tables (replacing same-named ones). Never throw — errors come
+    // back in the result's error/errorMessage.
+    QueryResult saveDatabase(const std::string& path);
+    QueryResult loadDatabase(const std::string& path);
+
     // Produce an EXPLAIN-style textual plan for a SELECT. Never throws; returns
     // the error text on failure.
     std::string explain(const std::string& sql);

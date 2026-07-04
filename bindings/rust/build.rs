@@ -27,6 +27,7 @@ fn main() {
         "execution/physical_plan.cpp",
         "execution/fast_aggregate.cpp",
         "storage/csv_reader.cpp",
+        "storage/persistence.cpp",
         "api/connection.cpp",
         "api/c_api.cpp",
     ];

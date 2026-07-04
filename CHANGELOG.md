@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Persistence** — save/load a whole database (all tables + data) to a single
+  file. New `Connection::saveDatabase`/`loadDatabase`, C API `lq_save`/`lq_load`,
+  shell `.save`/`.open`, and `save`/`load` in the Python and Rust bindings. The
+  on-disk format serializes the typed columns directly (data + validity bitmap),
+  so all types and NULLs round-trip exactly; it is versioned and refuses to load
+  a newer format. `storage/persistence.{h,cpp}`; 5 C++ tests + binding tests.
 - **Rust bindings** (`bindings/rust/`): a safe crate over the C API. Its
   `build.rs` compiles the whole engine (via the `cc` crate) and links it in, so
   there is no separate library to install — `cargo build` is self-contained.

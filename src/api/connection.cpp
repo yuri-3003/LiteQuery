@@ -14,6 +14,7 @@
 #include "logical_plan.h"
 #include "optimizer.h"
 #include "csv_reader.h"
+#include "persistence.h"
 
 #include <chrono>
 #include <sstream>
@@ -452,6 +453,28 @@ QueryResult Connection::importCsv(const std::string& path,
     auto t1 = Clock::now();
     result.elapsedMicros =
         std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
+    return result;
+}
+
+QueryResult Connection::saveDatabase(const std::string& path) {
+    QueryResult result;
+    try {
+        lq::saveDatabase(*catalog_, path);
+        result.rowsAffected = static_cast<int64_t>(catalog_->tableNames().size());
+    } catch (const std::exception& e) {
+        result = QueryResult::makeError(e.what());
+    }
+    return result;
+}
+
+QueryResult Connection::loadDatabase(const std::string& path) {
+    QueryResult result;
+    try {
+        lq::loadDatabase(*catalog_, path);
+        result.rowsAffected = static_cast<int64_t>(catalog_->tableNames().size());
+    } catch (const std::exception& e) {
+        result = QueryResult::makeError(e.what());
+    }
     return result;
 }
 

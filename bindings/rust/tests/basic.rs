@@ -107,3 +107,33 @@ fn import_missing_file_errors() {
     let db = Connection::open().unwrap();
     assert!(db.import_csv("/no/such/file.csv", "t").is_err());
 }
+
+#[test]
+fn save_and_load() {
+    let path = std::env::temp_dir().join("lq_rust_persist.lqdb");
+    let path_str = path.to_str().unwrap();
+    {
+        let db = Connection::open().unwrap();
+        db.execute("CREATE TABLE t (id INT, name TEXT, v DOUBLE)").unwrap();
+        db.execute("INSERT INTO t VALUES (1,'a',1.5),(2,'b',NULL),(3,'c',3.5)").unwrap();
+        db.save(path_str).unwrap();
+    }
+    {
+        let db = Connection::open().unwrap(); // fresh, empty
+        db.load(path_str).unwrap();
+        let r = db.query("SELECT id, name, v FROM t ORDER BY id").unwrap();
+        let rows: Vec<_> = r.rows().collect();
+        assert_eq!(rows.len(), 3);
+        assert_eq!(rows[0].get_str("name"), Some("a"));
+        assert!(rows[1].at(2).unwrap().is_null()); // NULL preserved
+        // SUM skips the NULL: 1.5 + 3.5 = 5.0
+        assert_eq!(db.query("SELECT SUM(v) FROM t").unwrap().scalar().unwrap().as_f64(), Some(5.0));
+    }
+    let _ = std::fs::remove_file(&path);
+}
+
+#[test]
+fn load_bad_file_errors() {
+    let db = Connection::open().unwrap();
+    assert!(db.load("/no/such/db.lqdb").is_err());
+}
