@@ -126,19 +126,21 @@ answer), reported honestly. Vendored SQLite 3.46.1, opt-in build.
 
 ---
 
-## Phase 7 — Language bindings  🔨 (Python done)
+## Phase 7 — Language bindings  🔨 (Python + Rust done)
 *Goal: make LiteQuery usable from the languages data people live in.*
 *Effort: M each. Depends on: stable C API (already have it).*
 
 - [x] Python: `ctypes` wrapper over the C API — `Connection.query()` →
       rows/`.to_pandas()`; `import_csv`; self-contained shared library so no
       pybind11/Cython and any CPython works; 9 tests
-- [ ] Publish to PyPI (needs per-platform wheels in CI: `cibuildwheel`)
-- [ ] Rust: `bindgen` from `litequery.h` + safe RAII wrapper → crates.io
+- [x] Rust: safe crate over the C API; `build.rs` compiles the engine in (no
+      separate lib to install); `Connection`/`QueryResult`/`Row`/`Value`, RAII,
+      `Result` errors; 7 tests + doctest + demo
+- [ ] Publish to PyPI (per-platform wheels in CI: `cibuildwheel`) + crates.io
 - [ ] Node/WASM (stretch): compile to WASM, run in the browser
 
-**Delivered (Python):** `pip install .` from `bindings/python/` gives a working,
-dependency-free binding. PyPI + Rust remain.
+**Delivered:** working, dependency-free Python and Rust bindings from a source
+checkout. Publishing to the package registries remains (a CI/release task).
 
 ---
 

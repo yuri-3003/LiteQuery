@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Rust bindings** (`bindings/rust/`): a safe crate over the C API. Its
+  `build.rs` compiles the whole engine (via the `cc` crate) and links it in, so
+  there is no separate library to install — `cargo build` is self-contained.
+  `Connection::open()` with `query`/`execute`/`import_csv`; a `QueryResult` that
+  iterates `Row` views (`get`/`get_str`/`get_i64`/`get_f64`), a `Value` enum,
+  RAII cleanup, and `Result`-based errors. 7 integration tests + a doctest + a
+  runnable `demo` example.
+
 ## [0.2.0] — 2026-07-03
 
 Product milestone: LiteQuery goes from "a working engine" to "a tool people can

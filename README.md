@@ -277,6 +277,29 @@ The build produces a **self-contained** shared library (statically linked C++
 runtime), so the module loads on any CPython regardless of how it was compiled.
 Full guide: [bindings/python/README.md](bindings/python/README.md).
 
+### From Rust
+
+Safe bindings that compile the whole engine into the crate — no CMake, no
+prebuilt library:
+
+```rust
+use litequery::Connection;
+
+let db = Connection::open()?;
+db.import_csv("sales.csv", "sales")?;
+for row in db.query("SELECT region, SUM(amount) AS total \
+                     FROM sales GROUP BY region ORDER BY total DESC")?.rows() {
+    println!("{} {:?}", row.get_str("region").unwrap(), row.get_f64("total"));
+}
+# Ok::<(), litequery::Error>(())
+```
+
+```bash
+cd bindings/rust && cargo test && cargo run --example demo
+```
+
+Full guide: [bindings/rust/README.md](bindings/rust/README.md).
+
 ---
 
 ## Architecture at a glance

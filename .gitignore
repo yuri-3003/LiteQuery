@@ -17,6 +17,22 @@ cmake_install.cmake
 CTestTestfile.cmake
 Testing/
 
+# Rust (bindings/rust)
+target/
+# Keep a library's Cargo.lock out of version control.
+Cargo.lock
+
+# Python (bindings/python)
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+.pytest_cache/
+# The compiled shared library shipped into the package is a build artifact.
+bindings/python/litequery/*.dll
+bindings/python/litequery/*.so
+bindings/python/litequery/*.dylib
+
 # Editor / OS
 .vscode/
 .idea/

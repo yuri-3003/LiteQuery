@@ -1,0 +1,25 @@
+[package]
+name = "litequery"
+version = "0.2.0"
+edition = "2021"
+rust-version = "1.70"
+description = "Rust bindings for LiteQuery — an embeddable columnar SQL query engine"
+license = "MIT"
+repository = "https://github.com/yuri-3003/LiteQuery"
+homepage = "https://github.com/yuri-3003/LiteQuery"
+keywords = ["sql", "database", "columnar", "analytics", "embedded"]
+categories = ["database", "api-bindings"]
+readme = "README.md"
+# The C/C++ engine sources live outside this directory; build.rs references them
+# by relative path, so package them explicitly for `cargo publish`.
+include = [
+    "src/**",
+    "build.rs",
+    "Cargo.toml",
+    "README.md",
+]
+
+[dependencies]
+
+[build-dependencies]
+cc = "1.0"
