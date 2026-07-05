@@ -21,8 +21,6 @@ fn main() {
     let sources = [
         "parser/lexer.cpp",
         "parser/parser.cpp",
-        "planner/logical_plan.cpp",
-        "planner/optimizer.cpp",
         "execution/eval.cpp",
         "execution/physical_plan.cpp",
         "execution/fast_aggregate.cpp",
@@ -40,7 +38,6 @@ fn main() {
         .include(&include)
         .include(include.join("litequery"))
         .include(src.join("parser"))
-        .include(src.join("planner"))
         .include(src.join("catalog"))
         .include(src.join("storage"))
         .include(src.join("execution"))

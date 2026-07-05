@@ -11,8 +11,6 @@
 #include "eval.h"
 #include "physical_plan.h"
 #include "fast_aggregate.h"
-#include "logical_plan.h"
-#include "optimizer.h"
 #include "csv_reader.h"
 #include "persistence.h"
 
@@ -807,15 +805,13 @@ std::string Connection::explain(const std::string& sql) {
         const auto* sel = std::get_if<SelectStmt>(stmt.get());
         if (!sel) return "EXPLAIN is only supported for SELECT statements";
 
-        plan::LogicalPlanner planner(*catalog_);
-        plan::LogicalPlan lp = planner.plan(*sel);
-
-        opt::Optimizer optimizer(*catalog_);
-        optimizer.addDefaultRules();
-        lp = optimizer.optimize(std::move(lp));
-
-        plan::PlanPrinter printer;
-        return printer.print(*lp);
+        // Build the same operator tree the executor runs, and print it. This is
+        // the real plan — no separate logical model that could drift from it.
+        OwnedExprs owned;
+        exec::OperatorPtr root = buildSelect(*sel, *catalog_, owned);
+        std::string out = root->explain(0);
+        if (!out.empty() && out.back() == '\n') out.pop_back();
+        return out;
     }
     catch (const std::exception& e) {
         return std::string("EXPLAIN error: ") + e.what();

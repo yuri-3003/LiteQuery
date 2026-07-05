@@ -15,8 +15,4 @@ If it's SQL, show an example query. If it's an API, sketch the call.
 -- example
 ```
 
-**Is this on the roadmap?**
-Check [docs/product-roadmap.md](../docs/product-roadmap.md) — note the phase if
-it fits one, or explain why it's new.
-
 **Alternatives you've considered**

@@ -1,9 +1,8 @@
 # litequery — Rust bindings
 
 Safe Rust bindings for [LiteQuery](https://github.com/yuri-3003/LiteQuery), an
-embeddable **columnar SQL query engine** that runs analytical queries 3–7×
-faster than SQLite. The entire engine is compiled and linked by this crate's
-build script — there is **nothing to install separately**.
+embeddable columnar SQL query engine. The engine is compiled and linked by this
+crate's build script, so there is nothing to install separately.
 
 ```rust
 use litequery::Connection;

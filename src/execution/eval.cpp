@@ -30,8 +30,8 @@ bool bothIntegers(const Value& a, const Value& b) {
 int compareValues(const Value& a, const Value& b) {
     if (a.isNull() || b.isNull()) return 2;
 
-    // Numeric cross-type comparison via double (int64 fits within the exact
-    // range we care about for the MVP; decimal treated as double).
+    // Numeric cross-type comparison. Integers compare exactly; mixed or
+    // floating comparisons promote to double (decimal is treated as double).
     if (isNumeric(a) && isNumeric(b)) {
         if (bothIntegers(a, b)) {
             int64_t x = a.toInt64(), y = b.toInt64();

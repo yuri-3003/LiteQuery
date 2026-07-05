@@ -29,7 +29,6 @@
 #include "eval.h"
 #include "table.h"
 #include "types.h"
-#include "logical_plan.h"   // ast::SortOrder etc. live in ast.h; used for keys
 
 #include <memory>
 #include <string>
@@ -55,6 +54,14 @@ public:
 
     // Rewind to the beginning (optional; used by nested-loop-style re-scans).
     virtual void reset() {}
+
+    // Render this operator (and its children) as an indented tree — the basis
+    // of EXPLAIN. Each operator prints one line for itself, then its children
+    // at indent+1.
+    virtual std::string explain(int indent) const = 0;
+
+protected:
+    static std::string indentStr(int n) { return std::string(n * 2, ' '); }
 };
 
 using OperatorPtr = std::unique_ptr<Operator>;
@@ -71,6 +78,7 @@ public:
 
     const Schema& schema() const override { return schema_; }
     Batch next() override;
+    std::string explain(int indent) const override;
     void  reset() override { cursor_ = 0; }
 
 private:
@@ -89,6 +97,7 @@ public:
 
     const Schema& schema() const override { return child_->schema(); }
     Batch next() override;
+    std::string explain(int indent) const override;
     void  reset() override { child_->reset(); }
 
 private:
@@ -112,6 +121,7 @@ public:
 
     const Schema& schema() const override { return schema_; }
     Batch next() override;
+    std::string explain(int indent) const override;
     void  reset() override { child_->reset(); }
 
 private:
@@ -130,6 +140,7 @@ public:
 
     const Schema& schema() const override { return child_->schema(); }
     Batch next() override;
+    std::string explain(int indent) const override;
     void  reset() override { child_->reset(); emitted_ = 0; skipped_ = 0; }
 
 private:
@@ -156,6 +167,7 @@ public:
 
     const Schema& schema() const override { return child_->schema(); }
     Batch next() override;
+    std::string explain(int indent) const override;
     void  reset() override { built_ = false; cursor_ = 0; rows_.clear(); }
 
 private:
@@ -178,6 +190,7 @@ public:
 
     const Schema& schema() const override { return child_->schema(); }
     Batch next() override;
+    std::string explain(int indent) const override;
     void  reset() override { built_ = false; cursor_ = 0; rows_.clear(); }
 
 private:
@@ -214,6 +227,7 @@ public:
 
     const Schema& schema() const override { return schema_; }
     Batch next() override;
+    std::string explain(int indent) const override;
     void  reset() override { built_ = false; cursor_ = 0; groups_.clear(); order_.clear(); }
 
 private:
@@ -256,6 +270,7 @@ public:
 
     const Schema& schema() const override { return schema_; }
     Batch next() override;
+    std::string explain(int indent) const override;
     void  reset() override;
 
 private:
@@ -294,6 +309,7 @@ public:
 
     const Schema& schema() const override { return left_->schema(); }
     Batch next() override;
+    std::string explain(int indent) const override;
     void  reset() override { left_->reset(); right_->reset(); leftDone_ = false; }
 
 private:
@@ -312,6 +328,7 @@ public:
 
     const Schema& schema() const override { return schema_; }
     Batch next() override;
+    std::string explain(int indent) const override;
     void  reset() override { cursor_ = 0; }
 
 private:

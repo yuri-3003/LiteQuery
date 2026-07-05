@@ -485,6 +485,98 @@ Batch Values::next() {
 }
 
 // ============================================================================
+// explain — render each operator (and its children) as an indented tree
+// ============================================================================
+
+namespace {
+
+std::string schemaCols(const Schema& s) {
+    std::string out;
+    for (size_t i = 0; i < s.size(); ++i) {
+        if (i) out += ", ";
+        out += s[i].name;
+    }
+    return out;
+}
+
+const char* joinTypeName(ast::JoinType t) {
+    switch (t) {
+        case ast::JoinType::INNER: return "INNER";
+        case ast::JoinType::LEFT:  return "LEFT";
+        case ast::JoinType::RIGHT: return "RIGHT";
+        case ast::JoinType::FULL:  return "FULL";
+        case ast::JoinType::CROSS: return "CROSS";
+    }
+    return "?";
+}
+
+}  // namespace
+
+std::string SeqScan::explain(int indent) const {
+    return indentStr(indent) + "SeqScan  (" + schemaCols(schema_) + ")\n";
+}
+
+std::string Filter::explain(int indent) const {
+    return indentStr(indent) + "Filter\n" + child_->explain(indent + 1);
+}
+
+std::string Project::explain(int indent) const {
+    std::string cols;
+    for (size_t i = 0; i < items_.size(); ++i) {
+        if (i) cols += ", ";
+        cols += items_[i].name;
+    }
+    return indentStr(indent) + "Project  (" + cols + ")\n" + child_->explain(indent + 1);
+}
+
+std::string Limit::explain(int indent) const {
+    std::string s = indentStr(indent) + "Limit  ";
+    if (limit_ >= 0) s += "limit=" + std::to_string(limit_);
+    if (offset_ > 0) s += (limit_ >= 0 ? " " : "") + std::string("offset=") + std::to_string(offset_);
+    return s + "\n" + child_->explain(indent + 1);
+}
+
+std::string Sort::explain(int indent) const {
+    std::string s = indentStr(indent) + "Sort  (" + std::to_string(keys_.size()) + " key";
+    s += (keys_.size() == 1 ? ")" : "s)");
+    return s + "\n" + child_->explain(indent + 1);
+}
+
+std::string Distinct::explain(int indent) const {
+    return indentStr(indent) + "Distinct\n" + child_->explain(indent + 1);
+}
+
+std::string HashAggregate::explain(int indent) const {
+    std::string s = indentStr(indent) + "HashAggregate  groups=" +
+                    std::to_string(groupKeys_.size()) + " aggs=";
+    std::string aggList;
+    for (size_t i = 0; i < aggs_.size(); ++i) {
+        if (i) aggList += ",";
+        aggList += aggs_[i].func;
+    }
+    s += "[" + aggList + "]";
+    return s + "\n" + child_->explain(indent + 1);
+}
+
+std::string HashJoin::explain(int indent) const {
+    std::string s = indentStr(indent) + "HashJoin  " + joinTypeName(type_) + "\n";
+    s += left_->explain(indent + 1);
+    s += right_->explain(indent + 1);
+    return s;
+}
+
+std::string Append::explain(int indent) const {
+    std::string s = indentStr(indent) + "Append\n";
+    s += left_->explain(indent + 1);
+    s += right_->explain(indent + 1);
+    return s;
+}
+
+std::string Values::explain(int indent) const {
+    return indentStr(indent) + "Values  (" + std::to_string(rows_.size()) + " rows)\n";
+}
+
+// ============================================================================
 // drain
 // ============================================================================
 

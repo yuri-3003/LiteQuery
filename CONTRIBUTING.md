@@ -25,32 +25,30 @@ See [docs/architecture.md](docs/architecture.md) for the full tour. In short:
 ```
 include/litequery/   Public C API (litequery.h)
 src/parser/          Lexer, AST, parser
-src/planner/         Logical plan + optimizer
 src/catalog/         Table registry
-src/storage/         Columnar Table/Column
-src/execution/       Expression evaluator + physical operators
+src/storage/         Columns, tables, CSV, persistence
+src/execution/       Expression evaluator, physical operators, fast path
 src/api/             Connection pipeline + C API wrapper
 tests/               Test framework + suites
 ```
 
 **Where to make a change:**
-- New SQL syntax → `src/parser/parser.cpp` (+ an AST node if needed).
-- New expression/function → `src/execution/eval.cpp`.
-- New clause/operator → a new operator in `src/execution/physical_plan.*` and
-  wiring in `src/api/connection.cpp` (`buildSelect`).
-- New optimization → derive from `Rule` in `src/planner/optimizer.h`, register
-  it in `Optimizer::addDefaultRules`.
+- New SQL syntax: `src/parser/parser.cpp` (plus an AST node if needed).
+- New expression or scalar function: `src/execution/eval.cpp`.
+- New clause or operator: a new operator in `src/execution/physical_plan.*` and
+  its wiring in `src/api/connection.cpp` (`buildSelect`).
+- Faster query shape: extend `src/execution/fast_aggregate.cpp`.
 
 ## Coding standards
 
-- **C++17**, no external dependencies (this is a hard rule — it's the product's
-  whole premise). The standard library is fine; third-party libraries are not.
+- C++17, no external dependencies. The standard library is fine; third-party
+  libraries are not.
 - Match the surrounding style: 4-space indent, `lowerCamelCase` for functions
   and variables, `PascalCase` for types, `snake_case` only in the C API.
 - Prefer RAII and `unique_ptr`/`shared_ptr` over manual `new`/`delete`. The only
   place raw `new`/`delete` is acceptable is the C API handle wrappers.
-- Keep the public C header (`litequery.h`) **pure C** — no C++ leakage.
-- Comment the *why*, not the *what*. Explain non-obvious decisions.
+- Keep the public C header (`litequery.h`) pure C, with no C++ leakage.
+- Comment the why, not the what.
 
 ## Tests are required
 
@@ -68,22 +66,16 @@ ctest --test-dir build-asan --output-on-failure
 
 ## Pull requests
 
-1. Fork and branch from `master` (`feature/…` or `fix/…`).
-2. Keep PRs focused — one logical change per PR.
+1. Fork and branch from `master` (`feature/...` or `fix/...`).
+2. Keep PRs focused: one logical change per PR.
 3. Make sure `ctest` passes locally; CI must be green (Linux/macOS/Windows).
-4. Describe *what* and *why* in the PR body. Link any related issue.
+4. Describe what and why in the PR body. Link any related issue.
 5. Update docs (`docs/sql-reference.md`, etc.) if you change behavior.
 
 ## Reporting bugs
 
-Open an issue with: the SQL that misbehaves, what you expected, what you got,
-and your platform/compiler. A minimal reproducer is gold.
-
-## Roadmap
-
-Planned work is in [docs/product-roadmap.md](docs/product-roadmap.md). If you
-want to take on a phase or a sub-item, comment on (or open) an issue first so we
-don't duplicate effort.
+Open an issue with the SQL that misbehaves, what you expected, what you got, and
+your platform and compiler. A minimal reproducer helps a lot.
 
 By contributing, you agree your contributions are licensed under the project's
 [MIT License](LICENSE).

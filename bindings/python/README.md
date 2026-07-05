@@ -1,9 +1,9 @@
 # litequery — Python bindings
 
 Python bindings for [LiteQuery](https://github.com/yuri-3003/LiteQuery), an
-embeddable **columnar SQL query engine** — 3–7× faster than SQLite on analytical
-aggregations. Pure `ctypes` over LiteQuery's C API, so there's **no Python build
-dependency** (no pybind11, no Cython) and it works with any CPython.
+embeddable columnar SQL query engine. Pure `ctypes` over LiteQuery's C API, so
+there is no Python build dependency (no pybind11, no Cython) and it works with
+any CPython.
 
 ```python
 import litequery

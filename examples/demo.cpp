@@ -71,7 +71,7 @@ int main() {
 
     run(db, "SELECT DISTINCT region FROM sales ORDER BY region");
 
-    std::cout << "\n--- EXPLAIN (logical plan) ---\n";
+    std::cout << "\n--- EXPLAIN (operator tree) ---\n";
     std::cout << db.explain(
         "SELECT region, SUM(amount) FROM sales WHERE amount > 50 GROUP BY region") << "\n";
 

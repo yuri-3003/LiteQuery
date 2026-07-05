@@ -4,24 +4,20 @@
 // LiteQuery — connection.h
 // The C++ entry point for executing SQL against an in-memory database.
 //
-// A Connection owns a Catalog and runs the full pipeline for each query:
+// A Connection owns a Catalog and runs each query through this pipeline:
 //
 //   SQL text
-//     │  Lexer::tokenize()
-//     ▼  tokens
-//     │  Parser::parseStatement()
-//     ▼  ast::StmtNode
-//     │  dispatch: CREATE / DROP / INSERT / SELECT
-//     ▼
-//   SELECT →  build operator tree (SeqScan → Join → Filter → Aggregate →
-//             Project → Distinct → Sort → Limit)  →  drain to QueryResult
-//   CREATE →  register table in catalog
-//   INSERT →  evaluate rows, append to table
+//     -> Lexer::tokenize()      -> tokens
+//     -> Parser::parseStatement -> ast::StmtNode
+//     -> dispatch by statement kind:
+//          SELECT           build an operator tree (SeqScan / Join / Filter /
+//                           HashAggregate / Project / Distinct / Sort / Limit)
+//                           and drain it into a QueryResult
+//          INSERT/UPDATE/DELETE   mutate the target table
+//          CREATE/DROP            update the catalog
 //
-// Errors are never thrown across query(): the pipeline's exceptions (lex/parse/
-// plan/eval) are caught and returned in QueryResult::error. The optimizer and
-// PlanPrinter are available for EXPLAIN, but result correctness flows through
-// the operator tree built directly from the resolved AST.
+// query() never throws: lex/parse/eval exceptions are caught and returned in
+// QueryResult::error. EXPLAIN prints the same operator tree the executor runs.
 //
 // Thread-safety: a Connection is not thread-safe; use one per thread. Multiple
 // Connections may share a Catalog (its shared_mutex guards concurrent access).

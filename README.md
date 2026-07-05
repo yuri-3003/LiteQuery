@@ -3,14 +3,13 @@
 [![CI](https://github.com/yuri-3003/LiteQuery/actions/workflows/ci.yml/badge.svg)](https://github.com/yuri-3003/LiteQuery/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Standard](https://img.shields.io/badge/C%2B%2B-17-00599C.svg)](https://en.cppreference.com/w/cpp/17)
-[![Dependencies](https://img.shields.io/badge/dependencies-zero-brightgreen.svg)](#build)
 
-**An embeddable, zero-dependency columnar SQL query engine in C++17.**
+An embeddable, zero-dependency columnar SQL query engine in C++17.
 
-LiteQuery drops into any application through a single C header — exactly like
-SQLite — but stores data **column-by-column** and executes with a **vectorized
-pull-based operator pipeline**, the architecture analytical databases use to run
-`GROUP BY`, aggregations, and joins efficiently.
+LiteQuery drops into any application through a single C header, like SQLite, but
+stores data column-by-column and executes with a vectorized pull-based operator
+pipeline, so `GROUP BY`, aggregations, and joins run several times faster than a
+row store on analytical queries.
 
 ```c
 #include "litequery/litequery.h"
@@ -29,11 +28,9 @@ lq_close(db);
 ```
 
 - **Zero dependencies.** Just a C++17 compiler. No Boost, no external SQL parser, no build-time codegen.
-- **Truly embeddable.** One public C header (`litequery.h`); link one static library. Usable from C, C++, and any language with a C FFI.
-- **Columnar storage.** Each column is stored contiguously so scans and aggregations are cache-friendly.
-- **Real query pipeline.** Lexer → Parser → Logical plan → Rule-based optimizer → Vectorized physical operators.
-
----
+- **Embeddable.** One public C header (`litequery.h`) and one static library. Usable from C, C++, Python, and Rust.
+- **Columnar storage.** Each column is a typed contiguous buffer, so scans and aggregations stay in cache.
+- **Vectorized execution.** A typed fast path runs common aggregates over raw arrays with no per-value boxing.
 
 ## Try it in 60 seconds
 
@@ -51,15 +48,13 @@ cd LiteQuery
 `build.sh` / `build.ps1` configure, build, run the tests, and leave you a
 `liblitequery.a` plus the `lq_demo` and `lq` binaries.
 
----
-
 ## The `lq` shell
 
-Prefer typing SQL over writing code? The build produces an interactive shell:
+The build produces an interactive shell:
 
 ```
 $ ./build/lq
-LiteQuery v0.1.0  ·  type .help for commands, .quit to exit
+LiteQuery 0.2.0  ·  type .help for commands, .quit to exit
 lq> CREATE TABLE emp (id INT, name VARCHAR, dept VARCHAR, salary DOUBLE);
 OK
 lq> INSERT INTO emp VALUES (1,'Ann','Eng',100),(2,'Bob','Eng',120),(3,'Cy','Sales',90);
@@ -75,11 +70,11 @@ lq> SELECT dept, COUNT(*), SUM(salary), AVG(salary) FROM emp GROUP BY dept ORDER
 ```
 
 It runs files (`lq script.sql`), stdin (`echo "SELECT 1" | lq`), and one-shot
-statements (`lq -c "SELECT 1+1"`); loads real data with `.import data.csv t`;
-has `.tables` / `.schema` / `.read` meta-commands; and outputs `table`, `csv`,
-or `json` via `.mode`. Full guide: [docs/shell.md](docs/shell.md).
+statements (`lq -c "SELECT 1+1"`); loads CSV with `.import data.csv t`; has
+`.tables` / `.schema` / `.read` meta-commands; and outputs `table`, `csv`, or
+`json` via `.mode`. Full guide: [docs/shell.md](docs/shell.md).
 
-Point it at a real CSV and query it immediately:
+Load a CSV and query it directly:
 
 ```
 lq> .import sales.csv sales
@@ -87,99 +82,66 @@ OK  (10432 rows into sales)
 lq> SELECT region, SUM(amount) AS total FROM sales GROUP BY region ORDER BY total DESC LIMIT 5;
 ```
 
-Save your work and pick it up later — the whole database round-trips to a single
-file:
+Save a database and reopen it later:
 
 ```
-lq> .save mydata.lqdb        # ... and in a later session:
+lq> .save mydata.lqdb
 lq> .open mydata.lqdb
 ```
 
-The on-disk format serializes the typed columns directly (data + a validity
-bitmap), so all types and NULLs are preserved exactly.
+The on-disk format serializes the typed columns directly (data plus a validity
+bitmap), so all types and NULLs are preserved.
 
----
+## What it supports
 
-## Status
-
-LiteQuery is an **early but genuinely working** engine (v0.1). The full path from
-SQL text to results is implemented, compiled, and covered by an automated test
-suite that runs green under a Release build.
-
-**What works today** (all verified end-to-end):
-
-| Feature | Status |
+| Area | Support |
 |---|---|
-| `CREATE TABLE` / `DROP TABLE` / `INSERT … VALUES` | ✅ |
-| `SELECT` with projections, expressions, aliases | ✅ |
-| `WHERE` with full 3-valued boolean logic & NULL semantics | ✅ |
-| Arithmetic, comparisons, `AND`/`OR`/`NOT`, `||`, `LIKE`/`ILIKE`, `IN`, `BETWEEN`, `CASE`, `CAST` | ✅ |
-| Scalar functions: `COALESCE`, `ABS`, `LENGTH`, `UPPER`, `LOWER`, `ROUND` | ✅ |
-| `GROUP BY` with `COUNT`/`SUM`/`AVG`/`MIN`/`MAX` (+ `COUNT(DISTINCT …)`) | ✅ |
-| `JOIN` — `INNER`, `LEFT`, `RIGHT`, `FULL`, `CROSS`, with `ON` predicates | ✅ |
-| `DISTINCT`, `ORDER BY` (incl. by dropped columns), `LIMIT` / `OFFSET` | ✅ |
-| CSV/TSV ingestion with automatic type inference (`.import` / `importCsv`) | ✅ |
-| Persistence — save/load a database to a single file (`.save` / `.open`) | ✅ |
-| Rule-based optimizer (constant folding, predicate pushdown, column pruning, …) | ✅ |
-| `EXPLAIN` (logical plan printer) | ✅ |
-| Interactive `lq` shell (REPL, table/csv/json output, `.import`) | ✅ |
-| C API (`lq_open`/`lq_query`/`lq_result_*`) — used from pure C | ✅ |
+| DDL / DML | `CREATE TABLE`, `DROP TABLE`, `INSERT ... VALUES`, `INSERT ... SELECT`, `UPDATE`, `DELETE` |
+| Queries | `SELECT` with projections, expressions, aliases; `WHERE`; `GROUP BY`; `HAVING`; `ORDER BY`; `LIMIT` / `OFFSET`; `DISTINCT` |
+| Aggregates | `COUNT`, `SUM`, `AVG`, `MIN`, `MAX`, `COUNT(DISTINCT ...)`; expressions over aggregates; `HAVING` and `ORDER BY` over aggregates |
+| Joins | `INNER`, `LEFT`, `RIGHT`, `FULL`, `CROSS`, with `ON` predicates |
+| Set ops | `UNION`, `UNION ALL` |
+| Expressions | arithmetic, comparisons, `AND`/`OR`/`NOT`, `\|\|`, `LIKE`/`ILIKE`, `IN`, `BETWEEN`, `CASE`, `CAST`; three-valued NULL logic |
+| Functions | `COALESCE`, `ABS`, `LENGTH`, `UPPER`, `LOWER`, `ROUND` |
+| Data | CSV/TSV import with type inference; save/load a database file |
+| Interfaces | C API, C++ API, `lq` shell, Python and Rust bindings, `EXPLAIN` |
 
-**Known limitations** (candidly): the typed columnar fast path covers the common
-aggregate shape (`SELECT [key,] AGG(col)… FROM t [WHERE simple] [GROUP BY key]`);
-other queries still use the correct-but-boxed general executor. Subqueries in
-`WHERE` (scalar / `IN (SELECT …)`) are not executed and `INTERSECT`/`EXCEPT` are
-not implemented; the optimizer runs on a logical plan that is separate from the
-executor's AST-driven path. See
-[docs/architecture.md](docs/architecture.md) and the [Roadmap](#roadmap).
-
-> Note on provenance: this repository was reconstructed from a partial snapshot.
-> The front-end (type system, lexer, AST, logical planner, optimizer) predates
-> this work; the parser, storage, evaluator, physical operators, connection
-> pipeline, C API, tests, build, and docs were completed to make it run.
-
----
+Not yet supported: subqueries in `WHERE` (scalar / `IN (SELECT ...)`),
+`INTERSECT` / `EXCEPT`, and Parquet. The full grammar is in
+[docs/sql-reference.md](docs/sql-reference.md).
 
 ## Performance
 
-Data is stored **column-by-column** in typed contiguous buffers (an `int64`/
-`double` array + a 1-bit-per-row validity bitmap), and the common analytical
-query shape runs through a **typed vectorized execution path** — no boxing, no
-per-row `std::variant` dispatch.
+Columns are stored in typed contiguous buffers (an `int64`/`double` array plus a
+1-bit-per-row validity bitmap). The common analytical query shape runs through a
+typed vectorized path with no boxing or per-row `std::variant` dispatch.
 
 ### vs SQLite
 
-The same data and queries through LiteQuery and SQLite (3.46.1, in-memory), at
-5 M rows, single thread, `-O2`. **Every LiteQuery result is verified equal to
-SQLite's.**
+Same data and queries through LiteQuery and SQLite (3.46.1, in-memory), at 5 M
+rows, single thread, `-O2`. Every LiteQuery result is checked equal to SQLite's.
 
 | Query | LiteQuery | SQLite | Speedup |
 |---|---|---|---|
-| `SELECT SUM(x) FROM t` | 0.021 s | 0.118 s | **5.6× faster** |
-| `SELECT AVG(x) FROM t WHERE x>500` | 0.054 s | 0.181 s | **3.3× faster** |
-| `SELECT cat, SUM(x) FROM t GROUP BY cat` | 0.220 s | 1.395 s | **6.3× faster** |
-| filtered `GROUP BY` | 0.200 s | 1.293 s | **6.5× faster** |
-| `SELECT COUNT(*) FROM t` | 0.017 s | 0.001 s | 0.1× (SQLite wins) |
+| `SELECT SUM(x) FROM t` | 0.021 s | 0.118 s | 5.6x |
+| `SELECT AVG(x) FROM t WHERE x>500` | 0.054 s | 0.181 s | 3.3x |
+| `SELECT cat, SUM(x) FROM t GROUP BY cat` | 0.220 s | 1.395 s | 6.3x |
+| filtered `GROUP BY` | 0.200 s | 1.293 s | 6.5x |
+| `SELECT COUNT(*) FROM t` | 0.017 s | 0.001 s | SQLite wins |
 
-LiteQuery is **3–7× faster on the analytical aggregations** it's built for.
-SQLite wins `COUNT(*)` — it answers from metadata instead of scanning, which
-LiteQuery doesn't special-case yet; reporting that honestly is the point.
-
-Reproduce:
+LiteQuery is 3-7x faster on analytical aggregations. SQLite wins `COUNT(*)`,
+which it answers from metadata rather than scanning. Reproduce:
 
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DLITEQUERY_BUILD_SQLITE_BENCH=ON
 cmake --build build --target lq_vs_sqlite && ./build/lq_vs_sqlite
 ```
 
-Against LiteQuery's own earlier boxed executor the typed path is 3–26× faster;
-full numbers and the harness are in [bench/README.md](bench/README.md).
-
----
+Numbers and the harness are in [bench/README.md](bench/README.md).
 
 ## Build
 
-Requires **CMake ≥ 3.16** and a **C++17** compiler (GCC, Clang, or MSVC).
+Requires CMake >= 3.16 and a C++17 compiler (GCC, Clang, or MSVC).
 
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
@@ -190,64 +152,44 @@ ctest --test-dir build --output-on-failure
 This produces:
 
 - `liblitequery.a` — the static library to link against.
-- `lq_tests` — the C++ unit/integration suite (ctest target `unit`).
-- `lq_capi_test` — a pure-C test using only the public header (ctest target `capi`).
+- `lq` — the interactive shell.
 - `lq_demo` — a small CLI tour of the API.
-
-Run the demo:
-
-```bash
-./build/lq_demo
-```
+- `lq_tests` / `lq_capi_test` — the C++ and pure-C test suites (ctest).
 
 ### Build options
 
 | Option | Default | Effect |
 |---|---|---|
-| `LITEQUERY_BUILD_TESTS` | `ON`  | Build `lq_tests` and `lq_capi_test` |
+| `LITEQUERY_BUILD_TESTS` | `ON`  | Build the test suites |
 | `LITEQUERY_BUILD_DEMO`  | `ON`  | Build `lq_demo` |
-| `LITEQUERY_ASAN`        | `OFF` | Build with AddressSanitizer + UBSan (where the toolchain provides them) |
+| `LITEQUERY_BUILD_SHELL` | `ON`  | Build the `lq` shell |
+| `LITEQUERY_BUILD_SHARED`| `ON`  | Build the shared library (for FFI / bindings) |
+| `LITEQUERY_BUILD_SQLITE_BENCH` | `OFF` | Build the LiteQuery-vs-SQLite benchmark |
+| `LITEQUERY_ASAN`        | `OFF` | Build with AddressSanitizer + UBSan |
 
-### Install & consume via CMake
+### Install and consume via CMake
 
 ```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build
 cmake --install build --prefix /your/install/prefix
 ```
 
-Then in your own project's `CMakeLists.txt`:
+Then in your own `CMakeLists.txt`:
 
 ```cmake
 find_package(LiteQuery REQUIRED)
 target_link_libraries(myapp PRIVATE LiteQuery::litequery)
 ```
 
-> If your application's own source is `.c` (using the C API), still enable the
-> C++ language in your project — `project(myapp LANGUAGES C CXX)` — because the
-> final link needs the C++ runtime.
-
-### One-line build (no CMake)
-
-```bash
-g++ -std=c++17 -O2 -Iinclude -Iinclude/litequery \
-    -Isrc/parser -Isrc/planner -Isrc/catalog -Isrc/storage -Isrc/execution -Isrc/api \
-    src/parser/lexer.cpp src/parser/parser.cpp \
-    src/planner/logical_plan.cpp src/planner/optimizer.cpp \
-    src/execution/eval.cpp src/execution/physical_plan.cpp \
-    src/api/connection.cpp src/api/c_api.cpp \
-    -c && ar rcs liblitequery.a *.o
-```
-
----
+If your application's own source is `.c` (using the C API), still enable the C++
+language in your project (`project(myapp LANGUAGES C CXX)`) because the final
+link needs the C++ runtime.
 
 ## Using the library
 
-### From C (the embeddable path)
+### From C
 
-Include one header and link `liblitequery.a`. See
-[docs/c-api.md](docs/c-api.md) for the full reference and the
-[quickstart above](#litequery).
+Include `litequery/litequery.h` and link `liblitequery.a`. See
+[docs/c-api.md](docs/c-api.md) for the full reference and the quickstart above.
 
 ### From C++
 
@@ -263,19 +205,18 @@ QueryResult r = db.query("SELECT id, v FROM t WHERE v > 4 ORDER BY v DESC");
 for (const auto& row : r.rows)
     std::cout << row[0].toString() << " = " << row[1].toString() << "\n";
 
-// Inspect the optimized logical plan:
 std::cout << db.explain("SELECT SUM(v) FROM t WHERE v > 1 GROUP BY id");
 ```
 
 ### From Python
 
-Pure-`ctypes` bindings — no pybind11/Cython, works with any CPython:
+Pure-`ctypes` bindings (no pybind11 or Cython), so they work with any CPython:
 
 ```python
 import litequery
 
 with litequery.connect() as db:
-    db.import_csv("sales.csv", "sales")           # names + types inferred
+    db.import_csv("sales.csv", "sales")           # names and types inferred
     for row in db.query("SELECT region, SUM(amount) AS total "
                         "FROM sales GROUP BY region ORDER BY total DESC"):
         print(row["region"], row["total"])
@@ -285,14 +226,14 @@ with litequery.connect() as db:
 cd bindings/python && python build_lib.py && pip install .
 ```
 
-The build produces a **self-contained** shared library (statically linked C++
-runtime), so the module loads on any CPython regardless of how it was compiled.
-Full guide: [bindings/python/README.md](bindings/python/README.md).
+The build produces a self-contained shared library (statically linked C++
+runtime), so the module loads on any CPython. Full guide:
+[bindings/python/README.md](bindings/python/README.md).
 
 ### From Rust
 
-Safe bindings that compile the whole engine into the crate — no CMake, no
-prebuilt library:
+Safe bindings that compile the engine into the crate, so there is no separate
+library to install:
 
 ```rust
 use litequery::Connection;
@@ -312,66 +253,28 @@ cd bindings/rust && cargo test && cargo run --example demo
 
 Full guide: [bindings/rust/README.md](bindings/rust/README.md).
 
----
-
-## Architecture at a glance
+## How it works
 
 ```
-   SQL text
-      │  Lexer            src/parser/lexer.*      → vector<Token>
-      ▼
-   tokens
-      │  Parser           src/parser/parser.*     → ast::StmtNode
-      ▼
-   AST  ──────────────┬────────────────────────────────────────────┐
-      │               │  LogicalPlanner  src/planner/logical_plan.* │  (EXPLAIN path)
-      │               ▼                                             │
-      │           LogicalPlan ──► Optimizer  src/planner/optimizer.*│
-      │                                                             │
-      │  Connection builds a physical operator tree directly from   │
-      ▼  the resolved AST + Catalog:                                ▼
-   Operator tree   src/execution/physical_plan.*        PlanPrinter (EXPLAIN)
-      SeqScan → HashJoin → Filter → HashAggregate → Project → Distinct → Sort → Limit
-      │  each operator: next() → Batch (columnar, pull model)
-      ▼
-   QueryResult   (schema + rows)
+SQL text -> Lexer -> Parser -> AST -> operator tree -> QueryResult
 ```
 
-Full walkthrough for contributors: [docs/architecture.md](docs/architecture.md).
+The `Connection` builds a physical operator tree directly from the AST
+(`SeqScan`, `Filter`, `Project`, `HashAggregate`, `HashJoin`, `Sort`,
+`Distinct`, `Limit`, `Append`). Each operator implements `next()` returning a
+columnar `Batch`; the root is pulled in a loop until empty. `EXPLAIN` prints the
+same tree the executor runs. A typed fast path handles the common aggregate
+shape over raw column arrays.
 
----
+Full walkthrough: [docs/architecture.md](docs/architecture.md).
 
 ## Documentation
 
-- **[docs/architecture.md](docs/architecture.md)** — the query lifecycle, every
-  component, and the key design decisions.
-- **[docs/sql-reference.md](docs/sql-reference.md)** — the exact SQL grammar and
-  semantics LiteQuery supports.
-- **[docs/c-api.md](docs/c-api.md)** — the C API reference, ownership rules, and
-  threading model.
-
----
-
-## Roadmap
-
-Ordered roughly by impact:
-
-1. **Typed columnar buffers** — replace `std::vector<Value>` columns with typed,
-   page-based buffers + an Arrow-style validity bitmap; make operators run on
-   typed arrays. This is the headline performance milestone.
-2. **Unify the optimizer with execution** — carry real (cloned) expressions in
-   the logical plan and drive the physical operators from the optimized plan so
-   predicate pushdown / column pruning actually reach the executor.
-3. **`HAVING`, correlated subqueries, `INSERT … SELECT`, set operations** at the
-   execution layer (the planner already models `UNION`).
-4. **Parquet & CSV ingestion** with zone-map predicate pushdown.
-5. **Dictionary + RLE compression** per column.
-6. **TPC-H benchmark harness** vs SQLite (the numbers that earn the columnar
-   claim its keep).
-7. **Python (pybind11 → PyArrow) and Rust (bindgen) bindings.**
-
----
+- [docs/architecture.md](docs/architecture.md) — the query lifecycle and each component.
+- [docs/sql-reference.md](docs/sql-reference.md) — the supported SQL grammar and semantics.
+- [docs/c-api.md](docs/c-api.md) — the C API reference, ownership rules, and threading.
+- [docs/shell.md](docs/shell.md) — the `lq` shell.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).

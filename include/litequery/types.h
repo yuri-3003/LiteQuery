@@ -177,13 +177,10 @@ struct NullValue {
 // ============================================================================
 // Value — a single scalar that can hold any supported type or NULL
 //
-// Design notes:
-//   - std::variant chosen over a tagged union for type safety and because
-//     Value appears in optimizer / planner layers where the overhead is fine.
-//   - Hot executor paths work directly on typed Column<T> arrays, not Values.
-//   - std::string is used for VARCHAR/BLOB. For large BLOBs in production
-//     you would replace this with a string_view into a separately managed
-//     arena — acceptable future optimisation.
+// std::variant is used over a tagged union for type safety; Value appears where
+// per-element overhead is acceptable (parsing, result rows, row-oriented
+// operators). The hot execution paths work directly on the typed column buffers
+// in storage/column.h, not on Values. VARCHAR/BLOB are held as std::string.
 // ============================================================================
 
 using ValueVariant = std::variant<

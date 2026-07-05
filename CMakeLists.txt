@@ -49,8 +49,6 @@ endif()
 set(LITEQUERY_SOURCES
   src/parser/lexer.cpp
   src/parser/parser.cpp
-  src/planner/logical_plan.cpp
-  src/planner/optimizer.cpp
   src/execution/eval.cpp
   src/execution/physical_plan.cpp
   src/execution/fast_aggregate.cpp
@@ -70,7 +68,6 @@ target_include_directories(litequery
   PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include/litequery
     ${CMAKE_CURRENT_SOURCE_DIR}/src/parser
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/planner
     ${CMAKE_CURRENT_SOURCE_DIR}/src/catalog
     ${CMAKE_CURRENT_SOURCE_DIR}/src/storage
     ${CMAKE_CURRENT_SOURCE_DIR}/src/execution
@@ -84,7 +81,6 @@ target_link_libraries(litequery PRIVATE $<BUILD_INTERFACE:lq_flags>)
 set(LITEQUERY_INTERNAL_INCLUDES
   ${CMAKE_CURRENT_SOURCE_DIR}/include/litequery
   ${CMAKE_CURRENT_SOURCE_DIR}/src/parser
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/planner
   ${CMAKE_CURRENT_SOURCE_DIR}/src/catalog
   ${CMAKE_CURRENT_SOURCE_DIR}/src/storage
   ${CMAKE_CURRENT_SOURCE_DIR}/src/execution

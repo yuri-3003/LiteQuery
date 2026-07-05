@@ -4,19 +4,16 @@
 // LiteQuery — column.h
 // Typed, contiguous column storage with an Arrow-style validity bitmap.
 //
-// A Column stores its values in a *typed* buffer (e.g. std::vector<int64_t>)
-// rather than boxed lq::Value objects, plus a 1-bit-per-row validity bitmap
-// marking NULLs. This is the columnar performance foundation:
+// A Column stores its values in a typed buffer (e.g. std::vector<int64_t>)
+// rather than boxed lq::Value objects, plus a 1-bit-per-row validity bitmap:
 //
 //   - a FLOAT64 column is 8 bytes/value + 1 bit, versus ~40 bytes boxed;
-//   - scans and aggregations read a flat array, so they vectorize and stay in
-//     cache instead of chasing std::variant discriminants per element.
+//   - scans and aggregations read a flat array, so they stay in cache instead
+//     of chasing std::variant discriminants per element.
 //
-// The public API is deliberately the same shape the boxed Column exposed
-// (append(Value)/operator[]→Value/reserve/size) so existing callers — the
-// executor's row-oriented operators, tests, and CSV bulk load — keep working
-// unchanged. Hot paths additionally use the typed accessors (i64()/f64()/…)
-// and validity() to avoid boxing entirely.
+// It exposes both a boxed API (append(Value) / operator[] returning Value) for
+// row-oriented operators, tests, and CSV bulk load, and typed accessors
+// (i64()/f64()/str()/validity()) that the hot paths use to avoid boxing.
 // ============================================================================
 
 #include "types.h"
